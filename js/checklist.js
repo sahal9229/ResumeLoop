@@ -1,136 +1,135 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   checklist.js — the persistent 9-check quality panel.
+   checklist.js — the 9 checks as a 3×3 grid of squares (BAUHAUS).
 
-   The single best teaching visual in the app: a wall of [✗] flips to [✓]
-   lap by lap. Each flip is triggered by a real verify:done event — never
-   a timer, never synthetic. TERMINAL RE-SKIN: markup/classes only; the
-   event subscription is unchanged.
+   Nine checks, nine squares, one per id:
+     not verified yet → ink outline, empty
+     failed           → solid red
+     passed           → solid ink
+
+   Watching the grid go from red to black IS the loop's progress.
+   Each flip is triggered by a real verify:done event — never a timer.
+   Hover / focus a square to read the check and the checker's evidence.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { $, el } from './dom.js?v=4';
 import { CHECK_DEFS } from './prompts.js?v=4';
 
-const STATE = { pending: 'pending', pass: 'pass', fail: 'fail' };
+const IDLE_HINT = 'Hover a square to read the check and the checker’s evidence.';
+
+function cellLabel(def, state, evidence) {
+  const s = state === 'pass' ? 'passed' : state === 'fail' ? 'failed' : 'not verified yet';
+  return `${def.name} — ${s}${evidence ? '. ' + evidence : ''}`;
+}
+
+/* Build one 3×3 grid + evidence readout. Returns { root, update(checks) }.
+   Used live on the Process page and once more on the Result page. */
+export function buildCheckGrid() {
+  const root = el('div');
+  const grid = el('div', 'cl-grid');
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', 'Nine quality checks');
+  const evidence = el('div', 'cl-evidence', IDLE_HINT);
+
+  const cells = {};
+  const state = {};   // id → { state:'pending'|'pass'|'fail', evidence:'' }
+
+  for (const def of CHECK_DEFS) {
+    const cell = el('button', 'cl-cell');
+    cell.type = 'button';
+    cell.dataset.id = def.id;
+    cell.setAttribute('aria-label', cellLabel(def, 'pending', ''));
+
+    const reveal = () => {
+      const s = state[def.id] || { state: 'pending', evidence: '' };
+      const status = s.state === 'pass' ? 'PASS' : s.state === 'fail' ? 'FAIL' : 'NOT VERIFIED YET';
+      evidence.innerHTML = '';
+      const head = el('b');
+      head.textContent = `${def.id} · ${def.name} — ${status}`;
+      evidence.append(head);
+      if (s.evidence) {
+        evidence.append(el('div', '', ''));
+        const q = el('div');
+        q.textContent = s.evidence;
+        evidence.append(q);
+      }
+    };
+    cell.addEventListener('mouseenter', reveal);
+    cell.addEventListener('focus', reveal);
+    cell.addEventListener('click', reveal);
+
+    grid.append(cell);
+    cells[def.id] = cell;
+    state[def.id] = { state: 'pending', evidence: '' };
+  }
+
+  grid.addEventListener('mouseleave', () => { evidence.textContent = IDLE_HINT; });
+
+  root.append(grid, evidence);
+
+  function update(checks) {
+    for (const check of checks) {
+      const cell = cells[check.id];
+      const def  = CHECK_DEFS.find(d => d.id === check.id);
+      if (!cell || !def) continue;
+      const newState = check.pass ? 'pass' : 'fail';
+      cell.classList.remove('pass', 'fail');
+      cell.classList.add(newState);            // instant flip — no easing
+      state[check.id] = { state: newState, evidence: check.evidence || '' };
+      cell.setAttribute('aria-label', cellLabel(def, newState, check.evidence || ''));
+    }
+  }
+
+  return { root, update };
+}
 
 export function createChecklistView() {
-  const panel  = $('checklistPanel');
-  let rowEls   = {};   // id → { root, iconEl, evidenceEl }
-  let checkState = {}; // id → 'pending'|'pass'|'fail'
-  let scoreEl  = null;
-  let verdictEl = null;
-  let iteration = 0;
+  const panel = $('checklistPanel');
+  let gridApi  = null;
+  let countEl  = null;
 
-  /* ── build the panel DOM (called once on reset) ───────────────── */
   function buildDOM() {
     panel.innerHTML = '';
-    rowEls     = {};
-    checkState = {};
-    iteration  = 0;
+    panel.className = 'checks-wrap';
 
-    // Header
-    const header = el('div', 'flex items-center justify-between px-4 pt-3 pb-2 border-b border-line');
-    header.innerHTML = `
-      <div class="t-small font-extrabold t-caps t-faint">quality checks · 9</div>
-      <div id="clScoreWrap" class="flex items-baseline gap-1">
-        <span id="clScore" class="t-small font-extrabold t-dim">—</span>
-        <span class="t-small t-faint">/100</span>
-      </div>`;
-    panel.append(header);
-    scoreEl = header.querySelector('#clScore');
+    const head = el('div', 'cl-head');
+    const title = el('span', 'sec-sub', 'THE CRITIC’S 9 CHECKS');
+    title.style.margin = '0';
+    title.style.borderTop = '0';
+    title.style.paddingTop = '0';
+    countEl = el('span', 'cl-count', 'AWAITING FIRST VERIFICATION');
+    head.append(title, countEl);
+    panel.append(head);
 
-    // Check rows
-    const list = el('div', 'px-2 py-1.5');
-    for (const def of CHECK_DEFS) {
-      const row = el('div', `cl-row cl-row-${def.id} cl-pending flex items-start gap-2.5 px-2 py-1`);
-      row.setAttribute('data-id', def.id);
-      row.setAttribute('title', def.name);
+    // key: what the colors mean — one glance, no guessing
+    const key = el('div', 'cl-key');
+    key.innerHTML = `
+      <span class="cl-key-item"><span class="cl-key-sq key-fail"></span>FAILED</span>
+      <span class="cl-key-item"><span class="cl-key-sq key-pass"></span>PASSED</span>
+      <span class="cl-key-item"><span class="cl-key-sq"></span>NOT CHECKED YET</span>`;
+    panel.append(key);
 
-      const iconWrap = el('span', 'cl-icon-wrap flex-none t-small');
-      iconWrap.textContent = '[ ]';
-
-      const textWrap = el('div', 'min-w-0 flex-1');
-      const nameEl   = el('div', 'cl-check-name t-small font-semibold leading-tight');
-      nameEl.textContent = `${def.id}  ${def.name}`;
-      const evidEl   = el('div', 'cl-evidence t-small hidden');
-
-      textWrap.append(nameEl, evidEl);
-      row.append(iconWrap, textWrap);
-      list.append(row);
-
-      rowEls[def.id] = { root: row, iconEl: iconWrap, evidenceEl: evidEl };
-      checkState[def.id] = STATE.pending;
-    }
-    panel.append(list);
-
-    // Verdict line
-    verdictEl = el('div', 'cl-verdict px-4 pb-3 t-small t-faint border-t border-line pt-2');
-    verdictEl.textContent = 'awaiting first verification…';
-    panel.append(verdictEl);
+    gridApi = buildCheckGrid();
+    panel.append(gridApi.root);
   }
 
-  /* ── update all checks from a verify:done event ──────────────── */
-  function applyVerdict(checks, score, verdict, n) {
-    iteration = n;
-
-    // Update score display
-    if (scoreEl) {
-      scoreEl.textContent = score;
-      scoreEl.className = 't-small font-extrabold ' + (score >= 80 ? '' : 't-acc');
-      if (score >= 80) scoreEl.style.color = '#E8E8E3';
-      else scoreEl.style.color = '';
-    }
-
-    // Flip each check row that changed state
-    for (const check of checks) {
-      const r = rowEls[check.id];
-      if (!r) continue;
-
-      const newState = check.pass ? STATE.pass : STATE.fail;
-      const oldState = checkState[check.id];
-      const changed = oldState !== newState || oldState === STATE.pending;
-
-      if (changed) {
-        r.root.classList.add('cl-flipping');
-        r.root.addEventListener('animationend', () => r.root.classList.remove('cl-flipping'), { once: true });
-      }
-
-      r.root.classList.remove('cl-pending', 'cl-pass', 'cl-fail');
-      r.root.classList.add('cl-' + newState);
-
-      r.iconEl.textContent = check.pass ? '[✓]' : '[✗]';
-
-      // Evidence (show for failures, hide for passes)
-      if (check.evidence && !check.pass) {
-        r.evidenceEl.textContent = '└ ' + check.evidence;
-        r.evidenceEl.classList.remove('hidden');
-      } else {
-        r.evidenceEl.classList.add('hidden');
-      }
-
-      checkState[check.id] = newState;
-    }
-
-    // Verdict
-    if (verdictEl) {
+  function applyVerdict(checks, n) {
+    gridApi?.update(checks);
+    if (countEl) {
       const nFail = checks.filter(c => !c.pass).length;
-      verdictEl.textContent = n === 0
-        ? `baseline: ${nFail}/9 checks failing.`
+      countEl.textContent = n === 0
+        ? `BASELINE — ${nFail} OF 9 FAILING`
         : nFail === 0
-          ? 'all 9 checks pass.'
-          : `after lap ${n}: ${nFail}/9 check${nFail !== 1 ? 's' : ''} open. ${verdict}`;
+          ? 'ALL 9 PASS'
+          : `AFTER LAP ${n} — ${nFail} OF 9 OPEN`;
     }
   }
 
-  /* ── public surface ───────────────────────────────────────────── */
   return {
-    reset() {
-      buildDOM();
-    },
+    reset() { buildDOM(); },
     finish() {},
-
     handle(ev) {
       if (ev.type === 'verify:done') {
-        applyVerdict(ev.data?.checks || [], ev.score, ev.data?.summaryVerdict || '', ev.n);
+        applyVerdict(ev.data?.checks || [], ev.n);
       }
     }
   };

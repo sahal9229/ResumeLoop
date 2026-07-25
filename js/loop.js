@@ -25,6 +25,8 @@
    ── Event vocabulary ────────────────────────────────────────────────────
      setup:start  {step:'jd'|'resume', timestampMs}
      setup:done   {step, data, raw, timestampMs}
+     guard:check  {n, max, apiCalls, elapsedMs, ok, timestampMs}
+                   ← the safety guard: budget/laps/time, plain code, every cycle
      verify:start {n, purpose:'baseline'|'check', timestampMs}
      verify:done  {n, purpose, data:{checks[],summaryVerdict}, score, raw, timestampMs}
      iter:start   {n, max, failedChecks[], previousScore, timestampMs}
@@ -72,11 +74,17 @@ export async function runLoop(settings, emit, signal) {
 
   const stamped = ev => ({ ...ev, timestampMs: Date.now() });
 
-  const ask = (prompt, stage) =>
-    askJSON(settings, prompt, signal, {
+  /* the safety guard's ledger: real cost/time numbers, nothing estimated */
+  const t0 = Date.now();
+  let apiCalls = 0;
+
+  const ask = (prompt, stage) => {
+    apiCalls++;
+    return askJSON(settings, prompt, signal, {
       note: text => emit(stamped({ type: 'note', stage, text })),
       api:  info => emit(stamped({ type: 'api', stage, ...info }))
     });
+  };
 
   /* ── loop state ─────────────────────────────────────────────── */
   let jobRequirements = null;
@@ -126,6 +134,12 @@ export async function runLoop(settings, emit, signal) {
       const failed = lastVerify.checks.filter(c => !c.pass);
       const failedIds = new Set(failed.map(c => c.id));
 
+      // ─ SAFETY GUARD: cost & time limits, checked before every cycle.
+      //   Plain code, no model. The stop conditions below enforce it;
+      //   this event makes the check itself visible.
+      emit(stamped({ type: 'guard:check', n, max: maxIterations, apiCalls,
+        elapsedMs: Date.now() - t0, ok: iteration < maxIterations }));
+
       // ─ DECIDE (pre-DO): check stop conditions before running the next lap ──
       // Stop codes: perfect (all pass), max (laps exhausted), plateau (stuck).
       // NOTE: 'target score' stop removed — maxIterations is the user's stated
@@ -141,11 +155,11 @@ export async function runLoop(settings, emit, signal) {
         stopReason = `Completed all ${maxIterations} lap${maxIterations !== 1 ? 's' : ''}. ${failed.length} check${failed.length !== 1 ? 's' : ''} still open.`;
         break;
       }
-      if (prevFailedIds !== null && setsEqual(prevFailedIds, failedIds)) {
-        stopCode   = 'plateau';
-        stopReason = `The same ${failed.length} check${failed.length !== 1 ? 's' : ''} failed twice in a row with no progress — may need human input.`;
-        break;
-      }
+      // (No plateau check here. Plateau means "verify n-1 and verify n failed
+      // the SAME checks" and is decided inside DECIDE below, which compares
+      // two consecutive verifier verdicts. At this point in the code
+      // prevFailedIds and failedIds come from the same verify, so comparing
+      // them always matched and killed the loop after one lap — a bug.)
 
       // Sort failed checks by priority; pass top 4 to the worker this lap
       const topFailed = [...failed]

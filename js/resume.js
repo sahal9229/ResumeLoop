@@ -112,26 +112,21 @@ export function parseResumeText(text) {
 export function buildDocDefinition(model) {
   const content = [];
 
-  // Name — largest element on the page
+  // Name — largest element on the page, centered like a letterhead
   if (model.name) {
-    content.push({ text: model.name, style: 'name' });
+    content.push({ text: model.name.toUpperCase(), style: 'name' });
   }
 
-  // Contact block — compact, separated by " | " for ATS readability
+  // Contact block — centered, separated by " | " for ATS readability
   if (model.contact.length) {
     content.push({ text: model.contact.join('  |  '), style: 'contact' });
-  }
-
-  // Thin rule under the contact block
-  if (model.name || model.contact.length) {
-    content.push({ canvas: [{ type: 'line', x1: 0, y1: 2, x2: 515, y2: 2, lineWidth: 0.5, lineColor: '#D1D5DB' }], margin: [0, 6, 0, 0] });
   }
 
   for (const section of model.sections) {
     // Section heading
     content.push({ text: section.heading, style: 'h2' });
     // Thin rule under the section heading
-    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.4, lineColor: '#E5E7EB' }], margin: [0, 0, 0, 4] });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#C9D4E4' }], margin: [0, 0, 0, 5] });
 
     // group consecutive bullets into one list; paragraphs and dates stay solo
     let bullets = null;
@@ -164,11 +159,13 @@ export function buildDocDefinition(model) {
     pageMargins: [48, 44, 48, 44],
     content,
     styles: {
-      name:    { fontSize: 22, bold: true, color: '#111827', margin: [0, 0, 0, 2] },
-      contact: { fontSize: 9, color: '#6B7280', margin: [0, 0, 0, 2], characterSpacing: 0.2 },
-      h2:      { fontSize: 11, bold: true, color: '#1F2937', characterSpacing: 1.2,
+      name:    { fontSize: 24, bold: true, color: '#1F4E79', alignment: 'center',
+                 characterSpacing: 0.5, margin: [0, 0, 0, 4] },
+      contact: { fontSize: 9, color: '#5A6472', alignment: 'center',
+                 margin: [0, 0, 0, 2], characterSpacing: 0.2 },
+      h2:      { fontSize: 12, bold: true, color: '#1F4E79', characterSpacing: 0.8,
                  margin: [0, 14, 0, 3] },
-      body:    { fontSize: 10, color: '#374151', lineHeight: 1.3 }
+      body:    { fontSize: 10, color: '#333B45', lineHeight: 1.3 }
     },
     defaultStyle: { fontSize: 10, font: 'Roboto' },
     info: { title: (model.name || 'Resume') + ' — tailored resume' }

@@ -4,52 +4,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
   <title>RESUMELOOP — the loop, visible</title>
 
   <!-- ─────────────────────────────────────────────────────────────────
-     ResumeLoop v4 — a 3-page ATS resume tailor with a transparent
+     ResumeLoop v5 — a 3-page ATS resume tailor with a transparent
      agentic loop. Client-side only, no build step.
 
-     Identity: TERMINAL / MACHINE READOUT.
-     One face (JetBrains Mono) · one accent (#FFB000) · radius 0 ·
-     shadows 0 · gradients 0 · state changes are instant.
+     Identity: BAUHAUS. Paper page, ink structure, three primaries
+     assigned to meaning: BLUE = doing · YELLOW = checking ·
+     RED = decision/stop · INK filled = passed.
+     Radius 0 or 50%. No shadows. No gradients.
 
-       Page 1  Upload    resume + JD + loop settings
-       Page 2  Process   the live loop readout (the heart)
-       Page 3  Download  final resume + checks + gaps + PDF export
+       Page 1  Input      resume + JD + loop parameters
+       Page 2  Process    the loop as a three-arc disc (the heart)
+       Page 3  Result     before/after + final checks + PDF export
 
      Must be served over http:// — see serve.cmd / serve.sh.
      ───────────────────────────────────────────────────────────────── -->
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    /* Tailwind supplies LAYOUT utilities only (flex/grid/spacing).
-       All identity — color, type, borders, motion — lives in custom.css. */
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            page:  '#0A0A0A',
-            panel: '#101010',
-            well:  '#0D0D0D',
-            line:  '#262626',
-            ink:   { DEFAULT: '#E8E8E3', dim: '#8A8A82', faint: '#55554F' },
-            acc:   '#FFB000'
-          },
-          fontFamily: {
-            sans: ['JetBrains Mono', 'ui-monospace', 'Consolas', 'monospace'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'Consolas', 'monospace']
-          }
-        }
-      }
-    };
-  </script>
-
-  <link rel="stylesheet" href="css/custom.css" />
+  <link rel="stylesheet" href="css/custom.css?v=12" />
 
   <!-- third-party parsers + PDF maker, classic scripts on window -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -58,266 +36,211 @@
   <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js"></script>
 </head>
 
-<body class="bg-page text-ink font-mono min-h-screen antialiased">
+<body>
 
   <!-- ══════════════ HEADER + STEPPER (persistent) ══════════════ -->
-  <header class="sticky top-0 z-40 border-b border-line bg-page">
-    <div class="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-      <div class="text-sm font-extrabold tracking-widest">RESUMELOOP<span class="t-acc">_</span></div>
-      <div class="t-small t-faint hidden sm:block">v4 · loop engine readout</div>
+  <header class="site-head">
+    <div class="wrap head-row">
+      <div class="brand">RESUMELOOP</div>
 
-      <ol id="stepper" class="ml-auto flex items-center gap-1 sm:gap-2" aria-label="Progress">
-        <li data-step="1" class="flex items-center">
-          <span class="step-num t-step">[1]</span>
-          <span class="step-label hidden sm:inline t-step pl-1">UPLOAD</span>
-        </li>
-        <li class="t-faint t-small px-1" aria-hidden="true">──</li>
-        <li data-step="2" class="flex items-center">
-          <span class="step-num t-step">[2]</span>
-          <span class="step-label hidden sm:inline t-step pl-1">PROCESS</span>
-        </li>
-        <li class="t-faint t-small px-1" aria-hidden="true">──</li>
-        <li data-step="3" class="flex items-center">
-          <span class="step-num t-step">[3]</span>
-          <span class="step-label hidden sm:inline t-step pl-1">DOWNLOAD</span>
-        </li>
+      <ol id="stepper" class="stepper" aria-label="Progress">
+        <li data-step="1"><span class="step-num">01</span><span class="step-label">INPUT</span></li>
+        <li data-step="2"><span class="step-num">02</span><span class="step-label">PROCESS</span></li>
+        <li data-step="3"><span class="step-num">03</span><span class="step-label">RESULT</span></li>
       </ol>
     </div>
   </header>
 
-  <main class="mx-auto max-w-6xl px-4 pb-24">
+  <main class="wrap">
 
     <!-- ES modules will not load from file:// — explains the dead page -->
-    <div id="fileWarn" class="hidden mt-6 t-panel px-5 py-4 t-small" style="border-color:#FFB000">
-      <b class="t-acc">[ERR] file:// protocol.</b><br />
-      Browsers block ES modules on <code class="t-acc">file://</code> — nothing will run.
-      Start the server: double-click <code class="t-acc">serve.cmd</code> (Windows) or run
-      <code class="t-acc">./serve.sh</code>, then open <code class="t-acc">http://127.0.0.1:8777/</code>.
+    <div id="fileWarn" class="hidden err-box" role="alert">
+      <b>ERROR — file:// protocol.</b><br />
+      Browsers block ES modules on <code>file://</code> — nothing will run.
+      Start the server: double-click <code>serve.cmd</code> (Windows) or run
+      <code>./serve.sh</code>, then open <code>http://127.0.0.1:8777/</code>.
     </div>
 
     <!-- ════════════════════════════════════════════════════════════
-       PAGE 1 — UPLOAD
+       PAGE 1 — INPUT
        ════════════════════════════════════════════════════════════ -->
     <section id="page-upload" aria-labelledby="heroTitle">
 
-      <div class="pt-14 pb-12">
-        <h1 id="heroTitle" class="t-h2">RESUMELOOP</h1>
-        <p class="mt-3 t-dim">> an agent loop rewrites your resume against a job description.<br />
-        > every pass is verified, logged, and visible.<span class="t-cursor ml-1" aria-hidden="true"></span></p>
+      <div class="hero">
+        <div class="hero-geo" aria-hidden="true">
+          <div class="geo-circle"></div>
+          <div class="geo-quarter"></div>
+        </div>
+        <h1 id="heroTitle" class="hero-title">RESUME<br />LOOP</h1>
+        <p class="hero-lead">An agent loop rewrites your resume against a job description.<br />
+          Every pass is checked. Every decision is visible.</p>
       </div>
 
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="sec">
+        <span class="sec-num">01</span>
+        <h2 class="sec-title">INPUT</h2>
+      </div>
+
+      <div class="grid-2">
 
         <!-- resume input -->
-        <div class="t-panel p-5">
-          <h2 class="t-label mb-4">INPUT / RESUME</h2>
+        <div class="panel">
+          <h3 class="panel-label">RESUME</h3>
 
-          <div id="drop" role="button" tabindex="0" aria-label="Upload resume file" class="t-drop">
-            <div class="drop-big t-body font-bold">DROP FILE OR CLICK TO BROWSE</div>
-            <div class="drop-small mt-1 t-small t-faint">PDF · DOCX · TXT — parsed locally, nothing uploaded</div>
+          <div id="drop" role="button" tabindex="0" aria-label="Upload resume file" class="drop">
+            <div class="drop-big">DROP FILE OR CLICK TO BROWSE</div>
+            <div class="drop-small">PDF · DOCX · TXT — parsed locally, nothing uploaded</div>
           </div>
           <input type="file" id="file" class="hidden" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" />
 
-          <label for="resume" class="mt-4 mb-1.5 block t-small t-dim">or paste plain text:</label>
-          <textarea id="resume" rows="8" class="t-input t-small" placeholder="paste resume text…"></textarea>
+          <label for="resume" class="field-label">Or paste plain text</label>
+          <textarea id="resume" class="field-area" spellcheck="false" placeholder="Paste resume text"></textarea>
         </div>
 
         <!-- JD input -->
-        <div class="t-panel p-5">
-          <h2 class="t-label mb-4">INPUT / JOB DESCRIPTION</h2>
+        <div class="panel">
+          <h3 class="panel-label">JOB DESCRIPTION</h3>
 
-          <label for="jd" class="mb-1.5 block t-small t-dim">paste the full posting:</label>
-          <textarea id="jd" rows="12" class="t-input t-small" placeholder="responsibilities, requirements, must-haves, stack…"></textarea>
+          <label for="jd" class="field-label">Paste the full posting</label>
+          <textarea id="jd" class="field-area field-area-tall" spellcheck="false" placeholder="Responsibilities, requirements, must-haves, stack"></textarea>
 
-          <label for="jdFile" class="mt-3 inline-flex cursor-pointer items-center gap-2 t-small t-faint hover:text-ink">
-            [+] or load JD from file
+          <label for="jdFile" class="file-link">
+            LOAD FROM FILE
             <input type="file" id="jdFile" class="hidden" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" />
           </label>
-          <span id="jdFileName" class="ml-2 t-small t-dim"></span>
+          <span id="jdFileName" class="cap"></span>
         </div>
       </div>
 
       <!-- loop settings — the teaching levers, kept visible -->
-      <div class="mt-4 t-panel p-5">
-        <h2 class="t-label mb-5">LOOP PARAMETERS</h2>
+      <div class="sec">
+        <span class="sec-num">02</span>
+        <h2 class="sec-title">PARAMETERS</h2>
+      </div>
 
-        <div class="grid gap-x-10 gap-y-6 md:grid-cols-2">
-          <div>
-            <div class="flex items-baseline justify-between">
-              <label for="targetScore" class="t-small font-bold t-caps">Target score</label>
-              <span id="targetVal" class="t-body font-extrabold t-acc">85</span>
-            </div>
-            <input type="range" id="targetScore" min="50" max="100" step="1" value="85" class="mt-2 w-full" />
-            <p class="mt-1 t-small t-faint">loop halts at or above this value</p>
-          </div>
+      <div class="grid-2 params-grid">
+        <div class="param">
+          <div id="targetVal" class="param-num">85</div>
+          <label for="targetScore" class="param-label">TARGET SCORE</label>
+          <input type="range" id="targetScore" class="range range-blue" min="50" max="100" step="1" value="85" />
+          <p class="cap">The loop halts at or above this score.</p>
+        </div>
 
-          <div>
-            <div class="flex items-baseline justify-between">
-              <label for="maxIterations" class="t-small font-bold t-caps">Max iterations</label>
-              <span id="maxVal" class="t-body font-extrabold t-acc">5</span>
-            </div>
-            <input type="range" id="maxIterations" min="1" max="8" step="1" value="5" class="mt-2 w-full" />
-            <p class="mt-1 t-small t-faint">hard ceiling — never exceeded</p>
-          </div>
+        <div class="param">
+          <div id="maxVal" class="param-num">5</div>
+          <label for="maxIterations" class="param-label">MAX LAPS</label>
+          <input type="range" id="maxIterations" class="range range-yellow" min="1" max="8" step="1" value="5" />
+          <p class="cap">Hard ceiling — never exceeded.</p>
+        </div>
 
-          <div>
-            <label for="apiKey" class="t-small font-bold t-caps">API key</label>
-            <input type="password" id="apiKey" placeholder="AIza… / sk-or-…" autocomplete="off" class="t-input mt-2" />
-            <p class="mt-1 t-small t-faint">stored in this browser only · sent straight to the provider</p>
-          </div>
+        <div class="param">
+          <label for="apiKey" class="param-label">API KEY</label>
+          <input type="password" id="apiKey" placeholder="AIza… / sk-or-…" autocomplete="off" class="field" />
+          <p class="cap">Stored in this browser only. Sent straight to the provider.
+            Keys: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
+            · <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a></p>
+        </div>
 
-          <div>
-            <label for="modelSel" class="t-small font-bold t-caps">Model</label>
-            <select id="modelSel" class="t-select mt-2">
-              <option value="gemini:gemini-2.5-flash">gemini-2.5-flash (free tier)</option>
-              <option value="gemini:gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
-              <option value="openrouter:~openai/gpt-latest">openrouter · ~openai/gpt-latest</option>
-              <option value="openrouter:openai/gpt-4o-mini">openrouter · gpt-4o-mini</option>
-              <option value="openrouter:anthropic/claude-3.5-haiku">openrouter · claude-3.5-haiku</option>
-              <option value="openrouter:custom">openrouter · custom slug…</option>
-            </select>
-            <input type="text" id="customModel" placeholder="any slug from openrouter.ai/models" class="t-input mt-2 hidden" />
-            <p class="mt-1 t-small t-faint">
-              keys: <a class="t-acc hover:underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
-              · <a class="t-acc hover:underline" href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>
-            </p>
-          </div>
+        <div class="param">
+          <label for="modelSel" class="param-label">MODEL</label>
+          <select id="modelSel" class="field select">
+            <option value="gemini:gemini-2.5-flash">gemini-2.5-flash (free tier)</option>
+            <option value="gemini:gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
+            <option value="openrouter:~openai/gpt-latest">openrouter · ~openai/gpt-latest</option>
+            <option value="openrouter:openai/gpt-4o-mini">openrouter · gpt-4o-mini</option>
+            <option value="openrouter:anthropic/claude-3.5-haiku">openrouter · claude-3.5-haiku</option>
+            <option value="openrouter:custom">openrouter · custom slug…</option>
+          </select>
+          <input type="text" id="customModel" placeholder="Any slug from openrouter.ai/models" class="field hidden" />
         </div>
       </div>
 
-      <div class="mt-8 flex flex-col items-start gap-3">
-        <button id="tailorBtn" disabled class="t-btn t-btn-acc">RUN LOOP ►</button>
-        <p id="gateHint" class="t-small t-faint">awaiting: resume + job description + api key</p>
-      </div>
+      <div id="err" class="hidden err-box" role="alert"></div>
 
-      <div id="err" class="hidden mt-5 t-well px-4 py-3 t-small whitespace-pre-wrap" style="border-color:#FFB000; color:#FFB000" role="alert"></div>
+      <!-- sticky launch bar — the primary action is always reachable -->
+      <div class="actionbar">
+        <button id="tailorBtn" class="pill" disabled>ADD: RESUME + JOB DESCRIPTION + API KEY</button>
+        <p id="gateHint" class="sr-only" aria-live="polite"></p>
+      </div>
     </section>
 
     <!-- ════════════════════════════════════════════════════════════
-       PAGE 2 — PROCESS (the live loop readout)
+       PAGE 2 — PROCESS (the loop as a disc)
        ════════════════════════════════════════════════════════════ -->
     <section id="page-process" class="hidden" aria-labelledby="processTitle">
-      <h1 id="processTitle" class="sr-only">Loop running</h1>
 
-      <!-- sticky loop status bar -->
-      <div class="sticky top-14 z-30 -mx-4 border-b border-line bg-page px-4 py-3">
-        <div class="mx-auto flex max-w-3xl items-center gap-5">
-          <div id="gaugeP" class="gauge flex-none" role="img" aria-label="Current score">
-            <div class="flex items-baseline gap-2">
-              <span class="t-small t-faint t-caps">score</span>
-              <span id="gScoreP" class="t-h3 font-extrabold">—</span>
-            </div>
-            <div class="t-meter-blocks" aria-hidden="true"></div>
-          </div>
-
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <span id="statusDot" class="pulse-dot" aria-hidden="true"></span>
-              <span id="statusText" class="truncate t-small font-bold t-caps">starting…</span>
-            </div>
-            <div id="iterLabel" class="mt-1 t-small t-dim">LAP 0/–</div>
-            <div class="mt-2 h-1 w-full bg-well border border-line overflow-hidden">
-              <div id="iterBar" class="h-full w-0"></div>
-            </div>
-          </div>
-
-          <button id="stopBtn" class="t-btn t-btn-sm t-btn-ghost flex-none">■ HALT</button>
-        </div>
+      <div class="sec sec-row">
+        <span class="sec-num">03</span>
+        <h2 id="processTitle" class="sec-title">PROCESS</h2>
+        <button id="stopBtn" class="btn-box">HALT</button>
       </div>
 
-      <!-- View toggle: Technical Log ↔ Loop Diagram -->
-      <div class="mx-auto mt-5 max-w-3xl">
-        <div class="inline-flex border border-line" role="tablist" aria-label="View mode">
-          <button id="techViewBtn" role="tab" aria-selected="true" aria-controls="timeline"
-            class="view-tab t-btn t-btn-sm t-btn-acc" style="border:0"
-            title="Full event log of every loop phase">TECHNICAL LOG</button>
-          <button id="theaterBtn" role="tab" aria-selected="false" aria-controls="theater"
-            class="view-tab t-btn t-btn-sm t-btn-ghost" style="border:0"
-            title="The loop as a live flow diagram">LOOP DIAGRAM</button>
-        </div>
-      </div>
+      <!-- the loop circle + status + ticker + score — built by theater.js,
+           driven by real events only -->
+      <div id="theater" aria-live="polite"></div>
 
-      <!-- Persistent Quality Checklist Panel — always visible regardless of active tab -->
-      <div id="checklistPanel" class="mx-auto mt-4 max-w-3xl" aria-label="Quality checklist"></div>
-
-      <!-- Technical Log -->
-      <div id="timeline" class="nice-scroll mx-auto mt-4 max-w-3xl space-y-3" aria-live="polite"></div>
-
-      <!-- Loop Diagram: same events, rendered as a live flowchart -->
-      <div id="theater" class="hidden mx-auto max-w-3xl" aria-live="polite"></div>
-
-      <div id="processActions" class="hidden mx-auto mt-8 max-w-3xl flex flex-wrap items-center gap-3">
-        <button id="toDownload" class="t-btn t-btn-acc">VIEW RESULT ►</button>
-        <button id="backToUpload" class="hidden t-btn t-btn-ghost">◄ BACK TO UPLOAD</button>
+      <div id="processActions" class="hidden actions-row">
+        <button id="toDownload" class="pill pill-fit">VIEW RESULT</button>
+        <button id="backToUpload" class="hidden btn-line">BACK TO INPUT</button>
       </div>
     </section>
 
     <!-- ════════════════════════════════════════════════════════════
-       PAGE 3 — DOWNLOAD
+       PAGE 3 — RESULT
        ════════════════════════════════════════════════════════════ -->
-    <section id="page-download" class="hidden pt-8" aria-labelledby="downloadTitle">
-      <h1 id="downloadTitle" class="sr-only">Result</h1>
+    <section id="page-download" class="hidden" aria-labelledby="downloadTitle">
 
-      <div class="grid gap-4 lg:grid-cols-5">
+      <div class="sec">
+        <span class="sec-num">04</span>
+        <h2 id="downloadTitle" class="sec-title">RESULT</h2>
+      </div>
 
-        <!-- resume preview -->
-        <div class="lg:col-span-3 t-panel p-6">
-          <div class="mb-4 flex items-center justify-between gap-3">
-            <h2 class="t-label flex-1">OUTPUT / RESUME</h2>
-            <span class="t-small t-faint whitespace-nowrap">plain text · single column · ATS-safe</span>
+      <div class="result-top">
+        <div>
+          <div class="score-row">
+            <span id="finalScore" class="num-120">—</span>
+            <span id="finalDelta" class="delta-mono"></span>
           </div>
-          <div id="resumePreview" class="nice-scroll max-h-[70vh] overflow-y-auto pr-2"></div>
+          <div id="journeyLine" class="mono-line"></div>
+          <div id="stopNote" class="cap"></div>
         </div>
 
-        <!-- results panel -->
-        <div class="lg:col-span-2 space-y-4">
-
-          <div class="t-panel p-5">
-            <h2 class="t-label mb-4">RESULT</h2>
-            <div class="flex items-start gap-5">
-              <div id="gaugeF" class="gauge flex-none" role="img" aria-label="Final score">
-                <div class="flex items-baseline gap-2">
-                  <span class="t-small t-faint t-caps">score</span>
-                  <span id="gScoreF" class="t-h3 font-extrabold">—</span>
-                </div>
-                <div class="t-meter-blocks" aria-hidden="true"></div>
-              </div>
-              <div class="min-w-0">
-                <div class="flex items-baseline gap-2">
-                  <span id="beforeScore" class="t-body t-faint line-through">—</span>
-                  <span class="t-faint">→</span>
-                  <span id="afterScore" class="t-h3 font-extrabold">—</span>
-                  <span id="gainBadge" class="t-tag t-tag-open">—</span>
-                </div>
-                <div id="journeyLine" class="mt-2 t-small t-dim"></div>
-                <div id="stopNote" class="mt-1 t-small t-faint"></div>
-              </div>
-            </div>
-
-            <div class="mt-5 flex flex-wrap gap-2">
-              <button id="dlPdf" class="t-btn t-btn-sm t-btn-acc">DOWNLOAD PDF</button>
-              <button id="dlTxt" class="t-btn t-btn-sm">DOWNLOAD TXT</button>
-              <button id="startOver" class="t-btn t-btn-sm t-btn-ghost">RESET</button>
-            </div>
-          </div>
-
-          <div class="t-panel p-5">
-            <h2 class="t-label mb-3">FINAL CHECKS</h2>
-            <div id="dlMatched"></div>
-          </div>
-
-          <div id="gapsWrap" class="t-panel p-5">
-            <h2 class="t-label mb-3">GAPS / NOT FIXED</h2>
-            <p class="mb-3 t-small t-faint">these were NOT written into the resume — that would be fabrication.
-              close them for real, then re-run.</p>
-            <div id="dlGaps" class="space-y-2"></div>
-          </div>
-
-          <div id="clWrap" class="t-panel p-5">
-            <h2 class="t-label mb-3">CHANGE LOG</h2>
-            <ol id="dlChangelog" class="space-y-1.5 t-small"></ol>
-          </div>
+        <div class="result-actions">
+          <button id="dlPdf" class="pill pill-fit">DOWNLOAD PDF</button>
+          <button id="dlTxt" class="btn-line">DOWNLOAD TXT</button>
+          <button id="startOver" class="btn-line">START OVER</button>
         </div>
+      </div>
+
+      <div class="sec-sub">BEFORE / AFTER</div>
+      <div class="compare">
+        <div class="pane">
+          <div class="pane-label">ORIGINAL</div>
+          <div id="beforePane" class="pane-body"></div>
+        </div>
+        <div class="pane pane-after">
+          <div class="pane-label">TAILORED</div>
+          <div id="afterPane" class="pane-body"></div>
+        </div>
+      </div>
+
+      <div class="dl-grid">
+        <div>
+          <div class="sec-sub">FINAL CHECKS</div>
+          <div id="dlChecklist"></div>
+        </div>
+
+        <div id="gapsWrap">
+          <div class="sec-sub">GAPS — NOT FIXED</div>
+          <p class="cap">These were not written into the resume — that would be fabrication.
+            Close them for real, then re-run.</p>
+          <div id="dlGaps"></div>
+        </div>
+      </div>
+
+      <div id="clWrap">
+        <div class="sec-sub">CHANGE LOG</div>
+        <ol id="dlChangelog" class="changelog"></ol>
       </div>
     </section>
   </main>
@@ -330,7 +253,7 @@
     }
   </script>
 
-  <script type="module" src="js/main.js?v=5"></script>
+  <script type="module" src="js/main.js?v=13"></script>
 </body>
 
 </html>
