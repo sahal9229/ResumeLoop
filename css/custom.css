@@ -1,0 +1,357 @@
+/* ═══════════════════════════════════════════════════════════════════
+   custom.css — the few things Tailwind utilities can't express.
+   Everything else in the app is styled with Tailwind classes.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* circular ATS gauge — a conic-gradient ring driven by two CSS vars:
+   --p (0-100 percent filled) and --c (ring colour) */
+.gauge{
+  --p:0; --c:#38BDF8;
+  border-radius:50%;
+  background:conic-gradient(var(--c) calc(var(--p) * 1%), #1B2438 0);
+  display:grid; place-items:center; position:relative;
+  transition:background .6s ease;
+}
+.gauge::after{
+  content:""; position:absolute; inset:9%; border-radius:50%;
+  background:#131A2A;
+}
+.gauge > *{ position:relative; z-index:1; }
+
+/* pulsing "running" dot */
+@keyframes blip{
+  0%,100%{ opacity:.25; transform:scale(.8); }
+  50%    { opacity:1;   transform:scale(1.3); }
+}
+.pulse-dot{ animation:blip 1s ease-in-out infinite; }
+
+/* new timeline cards slide in */
+@keyframes pop{
+  from{ opacity:0; transform:translateY(10px); }
+  to  { opacity:1; transform:none; }
+}
+.card-in{ animation:pop .3s ease; }
+
+/* score-bar fill eases toward its new width */
+.bar-fill{ transition:width .65s cubic-bezier(.2,.8,.2,1); }
+
+/* collapsible "under the hood" drawers: hide the default marker */
+details.hood > summary{ list-style:none; cursor:pointer; }
+details.hood > summary::-webkit-details-marker{ display:none; }
+
+/* slim dark scrollbars for the timeline and the resume preview */
+.nice-scroll::-webkit-scrollbar{ width:9px; }
+.nice-scroll::-webkit-scrollbar-thumb{ background:#243049; border-radius:9px; }
+.nice-scroll::-webkit-scrollbar-track{ background:transparent; }
+
+/* range sliders pick up the brand colour */
+input[type="range"]{ accent-color:#6366F1; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOOP THEATER — §B3 — FLOWCHART SVG VISUALIZATION
+   Nodes light up driven by real events. Zero setTimeout.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── theater container ────────────────────────────────────────────── */
+#theater{ padding:1.25rem 1rem 0; }
+
+/* ── score header ─────────────────────────────────────────────────── */
+.theater-lap-num{
+  font-size:.9rem; font-weight:700;
+  color:#94A3B8; letter-spacing:.05em; text-align:center;
+}
+.theater-score-big{
+  font-size:3.5rem; font-weight:800;
+  font-variant-numeric:tabular-nums; line-height:1;
+  background:linear-gradient(135deg,#38BDF8,#10B981);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text; transition:all .5s ease; text-align:center;
+}
+.theater-score-delta{
+  display:inline-flex; align-items:center; gap:.25rem;
+  font-size:.8rem; font-weight:700; font-family:ui-monospace,monospace;
+  padding:.2rem .6rem; border-radius:999px; border:1px solid transparent;
+  transition:all .4s ease; margin:0 auto;
+}
+.theater-score-delta.up   { border-color:#10B981; background:rgba(16,185,129,.12); color:#6ee7b7; }
+.theater-score-delta.down { border-color:#F43F5E; background:rgba(244,63,94,.12);  color:#fda4af; }
+.theater-score-delta.flat { border-color:#64748B; background:rgba(100,116,139,.1); color:#94A3B8; }
+
+/* ── flowchart SVG wrapper ────────────────────────────────────────── */
+.flowchart-wrap{
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 4px 32px rgba(0,0,0,.4);
+}
+.flowchart-svg{
+  display:block; width:100%; height:auto;
+  border-radius:14px;
+}
+
+/* ── NODE SHAPES ──────────────────────────────────────────────────── */
+.fc-node .fc-shape{
+  stroke-width:2;
+  transition: fill .35s ease, stroke .35s ease, filter .35s ease;
+}
+
+/* idle — dim dark */
+.fc-node.fc-idle .fc-shape{ fill:#131A2A; stroke:#243049; }
+.fc-node.fc-idle .fc-title,
+.fc-node.fc-idle .fc-title-sm { fill:#475569; }
+.fc-node.fc-idle .fc-sub       { fill:#2D3748; }
+
+/* active — glowing, pulsing border */
+@keyframes fc-node-pulse{
+  0%,100%{ stroke-width:2.5; opacity:1; }
+  50%    { stroke-width:4;   opacity:.9; }
+}
+.fc-node.fc-active .fc-shape{
+  fill:var(--fc-fill, #1E1B4B);
+  stroke:var(--fc-stroke, #6366F1);
+  stroke-width:3;
+  animation:fc-node-pulse 1.3s ease-in-out infinite;
+  filter:drop-shadow(0 0 8px var(--fc-stroke, #6366F1));
+}
+.fc-node.fc-active .fc-title,
+.fc-node.fc-active .fc-title-sm{ fill:#F1F5F9; }
+.fc-node.fc-active .fc-sub{ fill:#94A3B8; }
+
+/* done — lit up, no pulse */
+.fc-node.fc-done .fc-shape{
+  fill:var(--fc-fill-done, #0F2922);
+  stroke:var(--fc-stroke-done, #10B981);
+  stroke-width:2.5;
+}
+.fc-node.fc-done .fc-title,
+.fc-node.fc-done .fc-title-sm{ fill:#A7F3D0; }
+.fc-node.fc-done .fc-sub{ fill:#6EE7B7; opacity:.7; }
+
+/* stop node completed — green tint, steady */
+.fc-node.fc-stop-done .fc-shape{
+  fill:#0D2B1F; stroke:#10B981; stroke-width:3;
+  filter:drop-shadow(0 0 10px #10B981);
+}
+.fc-node.fc-stop-done .fc-title,
+.fc-node.fc-stop-done .fc-title-sm{ fill:#6EE7B7; }
+
+/* ── PER-NODE accent colours ─────────────────────────────────────── */
+#fc-node-context  { --fc-fill:#1A1740; --fc-stroke:#6366F1; --fc-fill-done:#121030; --fc-stroke-done:#818CF8; }
+#fc-node-worker   { --fc-fill:#2A1A50; --fc-stroke:#8B5CF6; --fc-fill-done:#1A0F38; --fc-stroke-done:#A78BFA; }
+#fc-node-verifier { --fc-fill:#0B2845; --fc-stroke:#38BDF8; --fc-fill-done:#081C30; --fc-stroke-done:#7DD3FC; }
+#fc-node-decide   { --fc-fill:#2C1E08; --fc-stroke:#F59E0B; --fc-fill-done:#1C1300; --fc-stroke-done:#FCD34D; }
+#fc-node-stop     { --fc-fill:#2C0A14; --fc-stroke:#F43F5E; }
+
+/* ── NODE TEXT ──────────────────────────────────────────────────────
+   SVG text inherits nothing from CSS in some engines, so we set
+   font-* directly as SVG presentation attrs in the JS template.
+   These classes give fallback values and smoothness.             */
+.fc-title{
+  font-size:13px; font-weight:700;
+  font-family:'Inter', ui-sans-serif, sans-serif;
+  pointer-events:none;
+  transition: fill .35s ease;
+}
+.fc-title-sm{
+  font-size:10.5px; font-weight:600;
+  font-family:'Inter', ui-sans-serif, sans-serif;
+  pointer-events:none;
+  transition: fill .35s ease;
+}
+.fc-sub{
+  font-size:9.5px; font-family:ui-monospace, monospace;
+  pointer-events:none;
+  transition: fill .35s ease;
+}
+.fc-sub-stop{ fill:#64748B; }
+
+/* ── ARROWS ──────────────────────────────────────────────────────── */
+.fc-arrow{ transition:opacity .35s ease; pointer-events:none; }
+.fc-arrow-dim  { opacity:.22; }
+.fc-arrow-live { opacity:1; }
+.fc-arrow-taken{ opacity:1; }
+
+/* YES/NO inline labels */
+.fc-label-yes{ font-size:11px; font-family:ui-monospace,monospace; font-weight:700; fill:#10B981; }
+.fc-label-no {
+  font-size:11px; font-family:ui-monospace,monospace; font-weight:700; fill:#6366F1;
+  transition:opacity .35s ease;
+}
+.fc-label-no.fc-arrow-dim{ opacity:.2; }
+
+/* Marching-ants on the loop-back dashed arrow */
+@keyframes fc-march{
+  to{ stroke-dashoffset:-26; }
+}
+#fc-arrow-loop.fc-arrow-live path{
+  animation: fc-march .65s linear infinite;
+}
+#fc-arrow-loop .fc-loop-label{
+  font-size:11px; font-family:ui-monospace,monospace; font-weight:600;
+  transition:opacity .35s ease;
+}
+
+/* ── Score badge inside SVG Context node ─────────────────────────── */
+.fc-badge-text{
+  font-size:10px; font-weight:700; font-family:ui-monospace,monospace;
+  fill:#A5B4FC;
+}
+
+/* ── CAPTION PANELS ─────────────────────────────────────────────── */
+.theater-caption{
+  min-height:48px; border-radius:12px;
+  border:1px solid #243049; background:#131A2A;
+  padding:.75rem 1rem; font-size:.8rem; line-height:1.5;
+  color:#CBD5E1; transition:all .3s ease; margin-top:.5rem;
+}
+.theater-caption-label{
+  font-size:.65rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.12em;
+  color:#475569; margin-bottom:.3rem;
+}
+.theater-caption.active{
+  border-color:#4F46E5; background:rgba(79,70,229,.08);
+  box-shadow:0 0 0 1px rgba(99,102,241,.2);
+}
+
+/* ── FINISH BANNER ──────────────────────────────────────────────── */
+@keyframes flag-wave{
+  0%  { transform:skewX(-2deg) scale(1); }
+  50% { transform:skewX(2deg) scale(1.01); }
+  100%{ transform:skewX(-2deg) scale(1); }
+}
+.theater-finish{
+  display:none; border-radius:16px; overflow:hidden;
+  border:2px solid #10B981;
+  background:linear-gradient(135deg,rgba(16,185,129,.15),rgba(99,102,241,.1));
+  padding:1.25rem 1.5rem; text-align:center; margin-top:1rem;
+  animation:flag-wave 2s ease-in-out infinite;
+}
+.theater-finish.visible{ display:block; }
+.theater-finish-headline{
+  font-size:1.1rem; font-weight:800;
+  background:linear-gradient(90deg,#10B981,#38BDF8);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text; margin-bottom:.4rem;
+}
+.theater-finish-reason{ font-size:.8rem; color:#94A3B8; line-height:1.5; }
+
+/* ── EXPLAINER STRIP ────────────────────────────────────────────── */
+.theater-explainer{
+  margin-top:1.25rem; border-radius:12px;
+  border:1px solid #1B2438; background:#0F1929; overflow:hidden;
+}
+.theater-explainer summary{
+  list-style:none; cursor:pointer;
+  padding:.65rem 1rem;
+  font-size:.72rem; font-weight:600;
+  color:#64748B; letter-spacing:.06em; text-transform:uppercase;
+  display:flex; align-items:center; justify-content:space-between;
+  transition:color .2s ease;
+}
+.theater-explainer summary::-webkit-details-marker{ display:none; }
+.theater-explainer summary:hover{ color:#94A3B8; }
+.theater-explainer[open] summary{ color:#CBD5E1; border-bottom:1px solid #1B2438; }
+.theater-explainer-body{
+  padding:.75rem 1rem 1rem;
+  font-size:.78rem; line-height:1.6; color:#94A3B8;
+}
+.theater-explainer-body p{ margin-bottom:.5rem; }
+.theater-legend{
+  display:grid; grid-template-columns:1fr 1fr; gap:.4rem .75rem; margin-top:.6rem;
+}
+.theater-legend-item{ display:flex; align-items:flex-start; gap:.4rem; font-size:.72rem; line-height:1.4; color:#94A3B8; }
+.theater-legend-icon{ font-size:1rem; flex-shrink:0; line-height:1.2; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERSISTENT CHECKLIST PANEL — §2a
+   The 9 named checks, always visible. Updated only on real verify:done events.
+   The teaching visual: students watch the red ✗ wall turn green ✓ lap by lap.
+   ═══════════════════════════════════════════════════════════════════ */
+
+#checklistPanel{
+  border-radius:16px;
+  border:1px solid #1B2438;
+  background:#0F1929;
+  overflow:hidden;
+}
+
+/* individual check rows */
+.cl-row{
+  cursor:default;
+  user-select:none;
+}
+.cl-pending .cl-icon-wrap{ color:#475569; }
+.cl-pending .cl-check-name{ color:#64748B; }
+
+.cl-pass{ background:rgba(16,185,129,.06); }
+.cl-pass .cl-check-name{ color:#A7F3D0; }
+
+.cl-fail{ background:rgba(244,63,94,.06); }
+.cl-fail .cl-check-name{ color:#FDA4AF; }
+
+.cl-evidence{
+  color:#94A3B8;
+  line-height:1.4;
+  margin-top:2px;
+}
+
+/* Flip animation — fires when a check changes state at a real verify:done event */
+@keyframes cl-flip{
+  0%  { transform:scaleX(1);   opacity:1; }
+  40% { transform:scaleX(0);   opacity:0; }
+  60% { transform:scaleX(0);   opacity:0; }
+  100%{ transform:scaleX(1);   opacity:1; }
+}
+.cl-flipping{ animation:cl-flip .45s ease; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHECK-GRID — 9-check result table inside Technical View verify cards
+   ═══════════════════════════════════════════════════════════════════ */
+
+.check-grid{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-top:8px;
+}
+.check-row-tl{
+  display:grid;
+  grid-template-columns:18px 1fr;
+  grid-template-rows:auto auto;
+  gap:0 6px;
+  padding:5px 6px;
+  border-radius:8px;
+  border:1px solid transparent;
+  font-size:11.5px;
+  line-height:1.35;
+}
+.check-pass-tl{
+  background:rgba(16,185,129,.06);
+  border-color:rgba(16,185,129,.2);
+}
+.check-fail-tl{
+  background:rgba(244,63,94,.06);
+  border-color:rgba(244,63,94,.2);
+}
+.check-icon-tl{
+  grid-row:1;
+  grid-column:1;
+  font-weight:700;
+  padding-top:1px;
+}
+.check-pass-tl .check-icon-tl{ color:#10B981; }
+.check-fail-tl  .check-icon-tl{ color:#F43F5E; }
+.check-name-tl{
+  grid-row:1; grid-column:2;
+  font-weight:600;
+}
+.check-pass-tl .check-name-tl{ color:#A7F3D0; }
+.check-fail-tl  .check-name-tl{ color:#FDA4AF; }
+.check-evid-tl{
+  grid-row:2; grid-column:2;
+  font-size:10.5px; color:#94A3B8; line-height:1.4;
+  font-style:italic;
+  margin-top:2px;
+}

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node -v; npm ls -g --depth=0 2>$null | Select-String -Pattern \"puppeteer|playwright\"; \\(Get-Command chrome,msedge -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(node \"C:\\\\Users\\\\sahal\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-sahal-OneDrive-Documents-Brototype-Sahal-Loop-engineering-ResumeLoop\\\\dda14186-9f95-4c95-84e9-c8b385363b7d\\\\scratchpad\\\\dump.mjs\")"
+    ]
+  }
+}
