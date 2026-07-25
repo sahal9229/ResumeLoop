@@ -1,150 +1,53 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   theater.js — v4 Loop Theater.
-   Flowchart-style visualization matching the loop engineering diagram:
+   theater.js — v4 Loop Diagram (TERMINAL RE-SKIN).
 
-     [Resume + Checks] ──► [AI Writer] ──► [Verifier] ──► ◇ All pass?
-            ▲                                                │      │
-            └────────── new result → try again ─────────────┘"no"  │"yes"
-                        (dashed loop-back arrow)                    ▼
-                                                               [Done! ✓]
+   The loop as a live ASCII flowchart:
 
-   PURE VIEW. Zero setTimeout calls. Every node glow, arrow highlight,
-   and caption is triggered by a real event from loop.js.
+     01 CONTEXT ──► 02 WRITE ──► 03 VERIFY ──► 04 DECIDE ──yes──► 05 HALT
+         ▲                                        │no
+         └──────── failed checks → next todo ─────┘
+
+   PURE VIEW. Zero setTimeout calls. Every node highlight, arrow state
+   and caption is triggered by a real event from loop.js — the same
+   event stream the Technical Log renders. Node spans snap between
+   states instantly; machines don't ease.
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { $, el, esc, arr } from './dom.js?v=4';
 
-/* Map stop codes to finish-line messages (plain language) */
+/* Map stop codes to finish-line messages (plain language, no decoration) */
 function stopMessage(ev) {
-  if (ev.code === 'perfect')  return `✅ All 9 checks passed after ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''}. The verifier found nothing left to fix.`;
-  if (ev.code === 'target')   return `🎯 Score hit the target (${ev.score}%). ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''} run.`;
-  if (ev.code === 'max')      return `⏱ Ran out of laps after ${ev.iterations}. Some checks still open — raise max-iterations to continue.`;
-  if (ev.code === 'plateau')  return `🔁 Same checks failed twice with no change — may need human input.`;
-  if (ev.code === 'aborted')  return `Stopped early. Last completed draft shown. Score: ${ev.score}%.`;
+  if (ev.code === 'perfect')  return `All 9 checks passed after ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''}. The verifier found nothing left to fix.`;
+  if (ev.code === 'target')   return `Score hit the target (${ev.score}). ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''} run.`;
+  if (ev.code === 'max')      return `Ran out of laps after ${ev.iterations}. Some checks still open — raise max iterations to continue.`;
+  if (ev.code === 'plateau')  return `Same checks failed twice with no change — may need human input.`;
+  if (ev.code === 'aborted')  return `Stopped early by you. Last completed draft shown. Score: ${ev.score}.`;
   return ev.reason || 'Loop finished.';
 }
 
-/* ── SVG template ────────────────────────────────────────────────────── */
-function buildFlowchartSVG() {
-  return `<svg id="flowSVG" viewBox="0 0 700 420" class="flowchart-svg"
-    xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Loop flowchart visualization">
-  <defs>
-    <!-- Dot-grid background -->
-    <pattern id="dotGrid" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
-      <circle cx="14" cy="14" r="1" fill="#1B2438"/>
-    </pattern>
+/* ── the ASCII diagram ──────────────────────────────────────────────────
+   Each node's box segments share a class (tnc/tnw/tnv/tnd/tns) so a
+   single class toggle lights the whole box. Arrows likewise
+   (tac/tav/tad/tay/tal). Composed line by line; widths are fixed.    */
+function buildDiagram() {
+  const C = (cls, s) => `<span class="tn ${cls}">${s}</span>`;
+  const A = (cls, s) => `<span class="ta ${cls}">${s}</span>`;
+  const G = '    ';                       // gap between boxes on border lines
 
-    <!-- Arrowhead markers — one per path colour -->
-    <marker id="arr-grey" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 9 3.5, 0 7" fill="#475569"/>
-    </marker>
-    <marker id="arr-indigo" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 9 3.5, 0 7" fill="#6366F1"/>
-    </marker>
-    <marker id="arr-indigo-bright" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 9 3.5, 0 7" fill="#818CF8"/>
-    </marker>
-    <marker id="arr-green" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 9 3.5, 0 7" fill="#10B981"/>
-    </marker>
-  </defs>
+  const l1 = C('tnc', '┌──────────────┐') + G + C('tnw', '┌──────────────┐') + G + C('tnv', '┌──────────────┐') + G + C('tnd', '┌──────────────┐');
+  const l2 = C('tnc', '│ 01 CONTEXT   │') + A('tac', '───►') + C('tnw', '│ 02 WRITE     │') + A('tav', '───►') + C('tnv', '│ 03 VERIFY    │') + A('tad', '───►') + C('tnd', '│ 04 DECIDE    │');
+  const l3 = C('tnc', '│ resume+todo  │') + G + C('tnw', '│ apply fixes  │') + G + C('tnv', '│ 9 rule check │') + G + C('tnd', '│ all pass?    │');
+  const l4 = C('tnc', '└──────────────┘') + G + C('tnw', '└──────────────┘') + G + C('tnv', '└──────────────┘') + G + C('tnd', '└──────────────┘');
 
-  <!-- Background -->
-  <rect width="700" height="420" fill="#0B1120" rx="14"/>
-  <rect width="700" height="420" fill="url(#dotGrid)" rx="14"/>
+  const l5 = A('tal', '        ▲') + ' '.repeat(58) + A('tay', '│');
+  const l6 = A('tal', '        │      no · failed checks become the next lap’s todo   ') + A('tay', '│');
+  const l7 = A('tal', '        └────────────────────────◄──────────────────────────') + A('tay', '┤');
+  const l8 = ' '.repeat(67) + A('tay', '│ yes');
+  const l9  = ' '.repeat(52) + C('tns', '┌──────────────▼┐');
+  const l10 = ' '.repeat(52) + C('tns', '│ 05 HALT   [✓] │');
+  const l11 = ' '.repeat(52) + C('tns', '└───────────────┘');
 
-  <!-- ──────────────────────────────────────────────────
-       LOOP-BACK DASHED ARROW (drawn behind nodes)
-       Decision ─► up ─► left ─► down into Context
-       ────────────────────────────────────────────────── -->
-  <g id="fc-arrow-loop" class="fc-arrow fc-arrow-dim">
-    <path d="M 590,133 L 590,50 L 100,50 L 100,147"
-      fill="none" stroke="#6366F1" stroke-width="2.2"
-      stroke-dasharray="9,5" marker-end="url(#arr-indigo)"/>
-    <text x="345" y="35" text-anchor="middle" class="fc-loop-label">new result → try again</text>
-  </g>
-
-  <!-- ──────────────────────────────────────────────────
-       CONNECTOR ARROWS (between nodes, dashed grey)
-       ────────────────────────────────────────────────── -->
-  <!-- Context → Worker -->
-  <g id="fc-arrow-cw" class="fc-arrow fc-arrow-dim">
-    <line x1="172" y1="185" x2="208" y2="185"
-      stroke="#475569" stroke-width="2.2" stroke-dasharray="6,4"
-      marker-end="url(#arr-grey)"/>
-  </g>
-  <!-- Worker → Verifier -->
-  <g id="fc-arrow-wv" class="fc-arrow fc-arrow-dim">
-    <line x1="330" y1="185" x2="378" y2="185"
-      stroke="#475569" stroke-width="2.2" stroke-dasharray="6,4"
-      marker-end="url(#arr-grey)"/>
-  </g>
-  <!-- Verifier → Decision -->
-  <g id="fc-arrow-vd" class="fc-arrow fc-arrow-dim">
-    <line x1="500" y1="185" x2="536" y2="185"
-      stroke="#475569" stroke-width="2.2" stroke-dasharray="6,4"
-      marker-end="url(#arr-grey)"/>
-  </g>
-  <!-- Decision → Done (YES, downward, green) -->
-  <g id="fc-arrow-yes" class="fc-arrow fc-arrow-dim">
-    <line x1="590" y1="237" x2="590" y2="296"
-      stroke="#10B981" stroke-width="2.5"
-      marker-end="url(#arr-green)"/>
-    <text x="612" y="272" class="fc-label-yes">yes</text>
-  </g>
-  <!-- NO label on loop arrow -->
-  <text id="fc-label-no" x="622" y="113" class="fc-label-no fc-arrow-dim">no</text>
-
-  <!-- ──────────────────────────────────────────────────
-       NODES
-       ────────────────────────────────────────────────── -->
-
-  <!-- 1. CONTEXT oval — "What it knows" -->
-  <g id="fc-node-context" class="fc-node fc-idle" data-accent="#6366F1">
-    <ellipse cx="100" cy="185" rx="72" ry="38" class="fc-shape"/>
-    <text x="100" y="181" text-anchor="middle" class="fc-title">Resume</text>
-    <text x="100" y="196" text-anchor="middle" class="fc-title">+ Checks</text>
-    <text x="100" y="239" text-anchor="middle" class="fc-sub">goal + latest result</text>
-  </g>
-
-  <!-- 2. AI WRITER rounded rect -->
-  <g id="fc-node-worker" class="fc-node fc-idle" data-accent="#8B5CF6">
-    <rect x="210" y="158" width="120" height="54" rx="10" class="fc-shape"/>
-    <text x="270" y="183" text-anchor="middle" class="fc-title">AI Writer</text>
-    <text x="270" y="198" text-anchor="middle" class="fc-title fc-title-sm">choose next fix</text>
-    <text x="270" y="230" text-anchor="middle" class="fc-sub">revises resume</text>
-  </g>
-
-  <!-- 3. VERIFIER rounded rect -->
-  <g id="fc-node-verifier" class="fc-node fc-idle" data-accent="#38BDF8">
-    <rect x="380" y="158" width="120" height="54" rx="10" class="fc-shape"/>
-    <text x="440" y="183" text-anchor="middle" class="fc-title">Verifier</text>
-    <text x="440" y="198" text-anchor="middle" class="fc-title fc-title-sm">independent check</text>
-    <text x="440" y="230" text-anchor="middle" class="fc-sub">tests 9 rules</text>
-  </g>
-
-  <!-- 4. DECISION diamond — "All pass?" -->
-  <g id="fc-node-decide" class="fc-node fc-idle" data-accent="#F59E0B">
-    <polygon points="590,133 644,185 590,237 536,185" class="fc-shape"/>
-    <text x="590" y="181" text-anchor="middle" class="fc-title fc-title-sm">need</text>
-    <text x="590" y="196" text-anchor="middle" class="fc-title fc-title-sm">a fix?</text>
-  </g>
-
-  <!-- 5. DONE oval — Stop -->
-  <g id="fc-node-stop" class="fc-node fc-idle" data-accent="#F43F5E">
-    <ellipse cx="590" cy="330" rx="58" ry="28" class="fc-shape"/>
-    <text x="590" y="326" text-anchor="middle" class="fc-title">Done!</text>
-    <text x="590" y="341" text-anchor="middle" class="fc-title fc-title-sm">✓ stop</text>
-    <text x="590" y="374" text-anchor="middle" class="fc-sub fc-sub-stop">stop when nothing left to fix</text>
-  </g>
-
-  <!-- Live score badge inside Context node (updates on verify:done) -->
-  <g id="fc-score-badge" opacity="0">
-    <rect x="55" y="205" width="90" height="18" rx="9" fill="#1B2438"/>
-    <text id="fc-score-text" x="100" y="218" text-anchor="middle" class="fc-badge-text">–</text>
-  </g>
-
-</svg>`;
+  return [l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11].join('\n');
 }
 
 /* ── caption panels ─────────────────────────────────────────────────── */
@@ -158,29 +61,29 @@ function mkExplainer() {
   const d = el('details', 'theater-explainer');
   d.setAttribute('open', '');
   d.innerHTML = `
-    <summary><span>💡 How to read this diagram — click to collapse</span><span>▾</span></summary>
+    <summary><span>what is this diagram?</span><span aria-hidden="true">▾</span></summary>
     <div class="theater-explainer-body">
-      <p>This is the loop shown as a <strong style="color:#CBD5E1">flowchart</strong> — the same style used in
-      software engineering and loop-agent diagrams.</p>
-      <p>Follow the arrows: the AI Writer rewrites your resume, the Verifier independently checks it against
-      9 named rules, and the diamond asks "does anything still need fixing?" If yes — the dashed arrow loops
-      back and the whole thing repeats. If no — Done!</p>
+      <p>This is a loop: the machine checks its own work, fixes what failed, then checks
+      again — until nothing is left to fix or it runs out of laps.</p>
+      <p>Follow the arrows. WRITE rewrites your resume. VERIFY — a separate model with no
+      memory of the writer — tests the draft against 9 named rules. DECIDE is plain code:
+      any check still failing sends the draft around again.</p>
       <div class="theater-legend">
         <div class="theater-legend-item">
-          <span class="theater-legend-icon">🟣</span>
-          <span><strong style="color:#CBD5E1">Resume + Checks</strong> — the AI's current knowledge: your resume + the list of checks that failed last time</span>
+          <span class="theater-legend-icon">01</span>
+          <span>CONTEXT — what the machine knows: your resume + the checks that failed last lap</span>
         </div>
         <div class="theater-legend-item">
-          <span class="theater-legend-icon">🟪</span>
-          <span><strong style="color:#CBD5E1">AI Writer</strong> — rewrites specific parts of your resume to fix the failing checks</span>
+          <span class="theater-legend-icon">02</span>
+          <span>WRITE — rewrites only what the failed checks name</span>
         </div>
         <div class="theater-legend-item">
-          <span class="theater-legend-icon">🔵</span>
-          <span><strong style="color:#CBD5E1">Verifier</strong> — a completely different AI reads the new draft and scores it against all 9 rules</span>
+          <span class="theater-legend-icon">03</span>
+          <span>VERIFY — an independent model scores the draft against all 9 rules</span>
         </div>
         <div class="theater-legend-item">
-          <span class="theater-legend-icon">🟡</span>
-          <span><strong style="color:#CBD5E1">Need a fix?</strong> — plain code reads the verifier's result: yes → loop again, no → done!</span>
+          <span class="theater-legend-icon">04</span>
+          <span>DECIDE — deterministic code: still failing? loop. all pass? halt.</span>
         </div>
       </div>
     </div>`;
@@ -201,47 +104,39 @@ export function createTheaterView() {
   let decideCapEl  = null;
   let finishEl     = null;
   let currentScore = null;
-  let svgEl        = null;   // the <svg> element
+  let diagramEl    = null;   // the <pre> element
   let maxIter      = 5;
 
   /* ── DOM helpers ────────────────────────────────────────────────── */
-  function getNode(id) { return svgEl?.querySelector('#' + id); }
-
-  function setNodeState(id, state /* 'fc-idle'|'fc-active'|'fc-done'|'fc-stop-done' */) {
-    const g = getNode(id);
-    if (!g) return;
-    g.classList.remove('fc-idle', 'fc-active', 'fc-done', 'fc-stop-done');
-    g.classList.add(state);
+  function setNodeState(cls, state /* 'idle'|'active'|'done' */) {
+    diagramEl?.querySelectorAll('.' + cls).forEach(s => {
+      s.classList.remove('tn-active', 'tn-done');
+      if (state === 'active') s.classList.add('tn-active');
+      if (state === 'done')   s.classList.add('tn-done');
+    });
   }
 
-  function setArrowState(id, state /* 'fc-arrow-dim'|'fc-arrow-live'|'fc-arrow-taken' */) {
-    const g = getNode(id);
-    if (!g) return;
-    g.classList.remove('fc-arrow-dim', 'fc-arrow-live', 'fc-arrow-taken');
-    g.classList.add(state);
-    // Also sync the standalone label elements (by toggling the dim class)
-    const lbl = svgEl?.querySelector('#fc-label-no, #fc-label-yes');
-    // handled per-event below
+  function setArrowState(cls, state /* 'dim'|'live'|'taken' */) {
+    diagramEl?.querySelectorAll('.' + cls).forEach(s => {
+      s.classList.remove('ta-live', 'ta-taken');
+      if (state === 'live')  s.classList.add('ta-live');
+      if (state === 'taken') s.classList.add('ta-taken');
+    });
   }
 
   /* ── Score display ──────────────────────────────────────────────── */
   function updateScore(score, prev) {
     if (!scoreBigEl) return;
-    scoreBigEl.textContent = score + '%';
+    scoreBigEl.textContent = String(score).padStart(3, '0');
     if (prev === null || prev === undefined) {
-      scoreDeltaEl.textContent = 'baseline';
-      scoreDeltaEl.className   = 'theater-score-delta flat';
+      scoreDeltaEl.textContent = 'BASELINE';
+      scoreDeltaEl.className   = 't-readout-delta';
     } else {
       const d = score - prev;
-      scoreDeltaEl.textContent = `${d > 0 ? '▲ +' : d < 0 ? '▼ ' : '▶ '}${d}`;
-      scoreDeltaEl.className   = `theater-score-delta ${d > 0 ? 'up' : d < 0 ? 'down' : 'flat'}`;
+      scoreDeltaEl.textContent = `${d > 0 ? '▲+' : d < 0 ? '▼' : '='}${d === 0 ? '' : d}`;
+      scoreDeltaEl.className   = `t-readout-delta ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`;
     }
     currentScore = score;
-    // Update score badge inside SVG
-    const badge = getNode('fc-score-badge');
-    const txt   = getNode('fc-score-text');
-    if (badge) badge.setAttribute('opacity', '1');
-    if (txt)   txt.textContent = score + '%';
   }
 
   /* ── Caption helpers ────────────────────────────────────────────── */
@@ -257,32 +152,34 @@ export function createTheaterView() {
     container.innerHTML = '';
     currentScore = null;
 
-    // Score header
-    const scoreRow = el('div', 'flex flex-col items-center gap-1 mb-4');
-    scoreBigEl   = el('div', 'theater-score-big', '–');
-    scoreDeltaEl = el('div', 'theater-score-delta flat', '');
-    lapNumEl     = el('div', 'theater-lap-num', 'Waiting to start…');
-    scoreRow.append(lapNumEl, scoreBigEl, scoreDeltaEl);
-    container.append(scoreRow);
+    // Score readout row
+    const readout = el('div', 't-readout');
+    scoreBigEl   = el('span', 't-readout-score', '—');
+    scoreDeltaEl = el('span', 't-readout-delta', '');
+    lapNumEl     = el('span', 't-readout-lap', 'awaiting start');
+    readout.append(el('span', 't-small t-faint t-caps', 'score'), scoreBigEl, scoreDeltaEl, lapNumEl);
+    container.append(readout);
 
-    // Flowchart SVG
-    const wrap = el('div', 'flowchart-wrap');
-    wrap.innerHTML = buildFlowchartSVG();
-    svgEl = wrap.querySelector('#flowSVG');
+    // ASCII diagram
+    const wrap = el('div', 't-diagram');
+    const pre  = el('pre');
+    pre.innerHTML = buildDiagram();
+    wrap.append(pre);
+    diagramEl = pre;
     container.append(wrap);
 
     // Captions
-    const caps = el('div', 'space-y-2 mt-3');
-    workerCapEl = mkCaption('🛠 AI Writer — what it changed this lap', 'worker');
-    verifyCapEl = mkCaption('🔍 Verifier — what the checker found', 'verifier');
-    decideCapEl = mkCaption('⚖️ Decision — what happens next', 'decide');
+    const caps = el('div', 'mt-2');
+    workerCapEl = mkCaption('[WRITE] — this lap’s changes', 'worker');
+    verifyCapEl = mkCaption('[VERIFY] — what the checker found', 'verifier');
+    decideCapEl = mkCaption('[DECIDE] — what happens next', 'decide');
     caps.append(workerCapEl, verifyCapEl, decideCapEl);
     container.append(caps);
 
-    // Finish banner
+    // Finish readout
     finishEl = el('div', 'theater-finish');
     finishEl.innerHTML = `
-      <div class="theater-finish-headline">🏁 Loop Complete!</div>
+      <div class="theater-finish-headline">loop complete</div>
       <div id="theaterFinishReason" class="theater-finish-reason"></div>`;
     container.append(finishEl);
 
@@ -290,29 +187,27 @@ export function createTheaterView() {
     container.append(mkExplainer());
   }
 
-  /* ── EVENT HANDLERS ─────────────────────────────────────────────── */
+  /* ── EVENT HANDLERS — same triggers as before, new rendering ────── */
 
   function onSetupStart() {
-    // Context node lights up while reading inputs
-    setNodeState('fc-node-context', 'fc-active');
-    setArrowState('fc-arrow-cw',    'fc-arrow-dim');
-    if (lapNumEl) lapNumEl.textContent = 'Reading your resume + job description…';
+    setNodeState('tnc', 'active');
+    setArrowState('tac', 'dim');
+    if (lapNumEl) lapNumEl.textContent = 'reading resume + job description…';
   }
 
   function onSetupDone(ev) {
     if (ev.step === 'resume') {
-      // Both inputs ready; verifier baseline is next
-      if (lapNumEl) lapNumEl.textContent = 'Running initial verification…';
+      if (lapNumEl) lapNumEl.textContent = 'running initial verification…';
     }
   }
 
   function onVerifyStart(ev) {
-    setNodeState('fc-node-verifier', 'fc-active');
-    setArrowState('fc-arrow-vd', 'fc-arrow-live');
+    setNodeState('tnv', 'active');
+    setArrowState('tad', 'live');
     if (ev.n === 0) {
-      if (lapNumEl) lapNumEl.textContent = 'First check — scoring the original resume…';
+      if (lapNumEl) lapNumEl.textContent = 'first check — scoring the original…';
     }
-    setCap(verifyCapEl, 'Checking…', true);
+    setCap(verifyCapEl, 'checking…', true);
   }
 
   function onVerifyDone(ev) {
@@ -320,56 +215,51 @@ export function createTheaterView() {
     const score  = ev.score ?? 0;
     const prev   = currentScore;
     updateScore(score, ev.n === 0 ? null : prev);
-    setNodeState('fc-node-verifier', 'fc-done');
-    setArrowState('fc-arrow-vd',     'fc-arrow-taken');
+    setNodeState('tnv', 'done');
+    setArrowState('tad', 'taken');
 
     if (ev.n === 0) {
-      setNodeState('fc-node-context', 'fc-done');
-      if (lapNumEl) lapNumEl.textContent = `Baseline: ${score}% · ${failed.length} of 9 checks failing`;
+      setNodeState('tnc', 'done');
+      if (lapNumEl) lapNumEl.textContent = `baseline ${score} · ${failed.length}/9 failing`;
       setCap(verifyCapEl,
-        `Original resume scores ${score}%. The checker found ${failed.length} of 9 checks failing — that's the starting wall of ✗.`, false);
+        `Original resume scores ${score}. ${failed.length} of 9 checks fail — that is the starting wall of [✗].`, false);
     } else {
-      if (lapNumEl) lapNumEl.textContent = `Lap ${ev.n}: score ${score}%`;
+      if (lapNumEl) lapNumEl.textContent = `lap ${ev.n}: score ${score}`;
       setCap(verifyCapEl,
         failed.length === 0
-          ? `All 9 checks pass! Score: ${score}%.`
-          : `Found ${failed.length} check${failed.length !== 1 ? 's' : ''} still failing: ${failed.slice(0, 2).map(c => c.name).join(', ')}${failed.length > 2 ? '…' : ''}.`,
+          ? `All 9 checks pass. Score: ${score}.`
+          : `${failed.length} check${failed.length !== 1 ? 's' : ''} still failing: ${failed.slice(0, 2).map(c => c.name).join(', ')}${failed.length > 2 ? '…' : ''}.`,
         false);
     }
   }
 
   function onIterStart(ev) {
     maxIter = ev.max;
-    // Reset nodes for new lap (except stop)
-    setNodeState('fc-node-context',  'fc-active');
-    setNodeState('fc-node-worker',   'fc-idle');
-    setNodeState('fc-node-verifier', 'fc-idle');
-    setNodeState('fc-node-decide',   'fc-idle');
-    // Reset arrows
-    setArrowState('fc-arrow-cw',    'fc-arrow-live');
-    setArrowState('fc-arrow-wv',    'fc-arrow-dim');
-    setArrowState('fc-arrow-vd',    'fc-arrow-dim');
-    setArrowState('fc-arrow-yes',   'fc-arrow-dim');
-    setArrowState('fc-arrow-loop',  'fc-arrow-dim');
+    setNodeState('tnc', 'active');
+    setNodeState('tnw', 'idle');
+    setNodeState('tnv', 'idle');
+    setNodeState('tnd', 'idle');
+    setArrowState('tac', 'live');
+    setArrowState('tav', 'dim');
+    setArrowState('tad', 'dim');
+    setArrowState('tay', 'dim');
+    setArrowState('tal', 'dim');
 
-    const noLabel = svgEl?.querySelector('#fc-label-no');
-    if (noLabel) noLabel.classList.add('fc-arrow-dim');
-
-    if (lapNumEl) lapNumEl.textContent = `Lap ${ev.n} of ${ev.max}`;
+    if (lapNumEl) lapNumEl.textContent = `lap ${ev.n}/${ev.max}`;
     setCap(decideCapEl, '—', false);
   }
 
   function onDoStart() {
-    setNodeState('fc-node-context', 'fc-done');
-    setNodeState('fc-node-worker',  'fc-active');
-    setArrowState('fc-arrow-cw',    'fc-arrow-taken');
-    setArrowState('fc-arrow-wv',    'fc-arrow-live');
-    setCap(workerCapEl, 'Rewriting…', true);
+    setNodeState('tnc', 'done');
+    setNodeState('tnw', 'active');
+    setArrowState('tac', 'taken');
+    setArrowState('tav', 'live');
+    setCap(workerCapEl, 'rewriting…', true);
   }
 
   function onDoDone(ev) {
-    setNodeState('fc-node-worker', 'fc-done');
-    setArrowState('fc-arrow-wv',   'fc-arrow-taken');
+    setNodeState('tnw', 'done');
+    setArrowState('tav', 'taken');
     const changes = arr(ev.data?.changesMade);
     const first   = changes[0];
     const text    = first
@@ -381,56 +271,48 @@ export function createTheaterView() {
   }
 
   function onDecideDone(ev) {
-    setNodeState('fc-node-decide', 'fc-active');
-    setArrowState('fc-arrow-vd',   'fc-arrow-taken');
+    setNodeState('tnd', 'active');
+    setArrowState('tad', 'taken');
 
     const failed = arr(ev.failedChecks);
 
     if (ev.decision === 'stop') {
-      // YES path: down to Done
-      setNodeState('fc-node-decide', 'fc-done');
-      setArrowState('fc-arrow-yes',  'fc-arrow-taken');
-      setArrowState('fc-arrow-loop', 'fc-arrow-dim');
-      setNodeState('fc-node-stop',   'fc-active');
-
-      const noLabel = svgEl?.querySelector('#fc-label-no');
-      if (noLabel) noLabel.classList.add('fc-arrow-dim');
+      setNodeState('tnd', 'done');
+      setArrowState('tay', 'taken');
+      setArrowState('tal', 'dim');
+      setNodeState('tns', 'active');
 
       const msg = ev.stopCode === 'perfect'
-        ? 'All 9 checks passed — the verifier found nothing left to fix!'
+        ? 'All 9 checks passed — nothing left to fix.'
         : ev.stopCode === 'target'
-          ? `Score hit the target (${ev.score}%). Stopping here.`
+          ? `Score hit the target (${ev.score}). Halting.`
           : ev.stopCode === 'max'
             ? `Out of laps. ${failed.length} check${failed.length !== 1 ? 's' : ''} still open.`
-            : `Same problems twice — may need human input.`;
+            : 'Same problems twice — may need human input.';
       setCap(decideCapEl, msg, false);
-      if (lapNumEl) lapNumEl.textContent = `Done after ${ev.n} lap${ev.n !== 1 ? 's' : ''}`;
+      if (lapNumEl) lapNumEl.textContent = `done after ${ev.n} lap${ev.n !== 1 ? 's' : ''}`;
     } else {
-      // NO path: dashed loop-back arrow
-      setNodeState('fc-node-decide', 'fc-idle');
-      setArrowState('fc-arrow-loop', 'fc-arrow-live');
-      setArrowState('fc-arrow-yes',  'fc-arrow-dim');
-
-      const noLabel = svgEl?.querySelector('#fc-label-no');
-      if (noLabel) noLabel.classList.remove('fc-arrow-dim');
+      setNodeState('tnd', 'idle');
+      setArrowState('tal', 'live');
+      setArrowState('tay', 'dim');
 
       setCap(decideCapEl,
-        `Not perfect — ${failed.length} check${failed.length !== 1 ? 's' : ''} still failing. Going around again to fix them.`,
+        `Not done — ${failed.length} check${failed.length !== 1 ? 's' : ''} still failing. Looping back.`,
         true);
-      if (lapNumEl) lapNumEl.textContent = `Lap ${ev.n} done — looping back`;
+      if (lapNumEl) lapNumEl.textContent = `lap ${ev.n} done — looping back`;
     }
   }
 
   function onStop(ev) {
-    setNodeState('fc-node-stop', 'fc-stop-done');
-    setArrowState('fc-arrow-loop', 'fc-arrow-dim');
+    setNodeState('tns', 'done');
+    setArrowState('tal', 'dim');
     if (finishEl) {
       finishEl.classList.add('visible');
       const r = document.getElementById('theaterFinishReason');
       if (r) r.textContent = stopMessage(ev);
     }
     if (lapNumEl)
-      lapNumEl.textContent = `${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''} · final score ${ev.score}%`;
+      lapNumEl.textContent = `${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''} · final ${ev.score}`;
   }
 
   /* ── PUBLIC SURFACE ─────────────────────────────────────────────── */

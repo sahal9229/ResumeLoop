@@ -1,357 +1,284 @@
 /* ═══════════════════════════════════════════════════════════════════
-   custom.css — the few things Tailwind utilities can't express.
-   Everything else in the app is styled with Tailwind classes.
+   ResumeLoop — TERMINAL / MACHINE READOUT identity.
+
+   One typeface (JetBrains Mono), one accent (amber CRT #FFB000),
+   zero border-radius, zero shadows, zero gradients. Structure comes
+   from 1px #262626 rules. State changes are instant — machines
+   don't ease. Hierarchy is size / weight / case, never decoration.
+
+   TYPE SCALE (px): 12 · 14 · 18 · 24 · 40 · 72 — nothing off-scale.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* circular ATS gauge — a conic-gradient ring driven by two CSS vars:
-   --p (0-100 percent filled) and --c (ring colour) */
-.gauge{
-  --p:0; --c:#38BDF8;
-  border-radius:50%;
-  background:conic-gradient(var(--c) calc(var(--p) * 1%), #1B2438 0);
-  display:grid; place-items:center; position:relative;
-  transition:background .6s ease;
-}
-.gauge::after{
-  content:""; position:absolute; inset:9%; border-radius:50%;
-  background:#131A2A;
-}
-.gauge > *{ position:relative; z-index:1; }
+:root{
+  --t-bg:     #0A0A0A;   /* true black-grey, no blue in it   */
+  --t-panel:  #101010;   /* raised surface                    */
+  --t-well:   #0D0D0D;   /* inset surface (inputs, logs)      */
+  --t-ink:    #E8E8E3;   /* phosphor text                     */
+  --t-dim:    #8A8A82;   /* secondary text                    */
+  --t-faint:  #55554F;   /* tertiary text                     */
+  --t-line:   #262626;   /* every rule and border             */
+  --t-acc:    #FFB000;   /* amber CRT — the only hue          */
+  --t-acc-dim:rgba(255,176,0,.12);
 
-/* pulsing "running" dot */
-@keyframes blip{
-  0%,100%{ opacity:.25; transform:scale(.8); }
-  50%    { opacity:1;   transform:scale(1.3); }
+  --fs-1:12px; --fs-2:14px; --fs-3:18px; --fs-4:24px; --fs-5:40px; --fs-6:72px;
+
+  --mono:'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --tick:120ms;          /* the single transition timing       */
 }
-.pulse-dot{ animation:blip 1s ease-in-out infinite; }
 
-/* new timeline cards slide in */
-@keyframes pop{
-  from{ opacity:0; transform:translateY(10px); }
-  to  { opacity:1; transform:none; }
+/* ── base ──────────────────────────────────────────────────────────── */
+*{ border-radius:0 !important; box-shadow:none !important; }
+html{ background:var(--t-bg); }
+body{
+  background:var(--t-bg); color:var(--t-ink);
+  font-family:var(--mono); font-size:var(--fs-2); line-height:1.55;
 }
-.card-in{ animation:pop .3s ease; }
+::selection{ background:var(--t-acc); color:#0A0A0A; }
 
-/* score-bar fill eases toward its new width */
-.bar-fill{ transition:width .65s cubic-bezier(.2,.8,.2,1); }
+/* focus — visible everywhere, amber, square */
+:focus-visible{ outline:2px solid var(--t-acc) !important; outline-offset:2px; }
 
-/* collapsible "under the hood" drawers: hide the default marker */
-details.hood > summary{ list-style:none; cursor:pointer; }
+/* reduced motion: kill the two blink animations, keep everything else instant anyway */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{ animation:none !important; transition:none !important; }
+}
+
+/* ── type helpers (the fixed scale) ───────────────────────────────── */
+.t-h1{ font-size:var(--fs-6); font-weight:800; letter-spacing:-.02em; line-height:1; }
+.t-h2{ font-size:var(--fs-5); font-weight:800; letter-spacing:-.02em; line-height:1.05; }
+.t-h3{ font-size:var(--fs-4); font-weight:700; line-height:1.2; }
+.t-h4{ font-size:var(--fs-3); font-weight:700; }
+.t-body{ font-size:var(--fs-2); }
+.t-small{ font-size:var(--fs-1); }
+.t-dim{ color:var(--t-dim); }
+.t-faint{ color:var(--t-faint); }
+.t-acc{ color:var(--t-acc); }
+.t-caps{ text-transform:uppercase; letter-spacing:.08em; }
+
+/* ── panels & rules ───────────────────────────────────────────────── */
+.t-panel{ background:var(--t-panel); border:1px solid var(--t-line); }
+.t-well { background:var(--t-well);  border:1px solid var(--t-line); }
+.t-rule { border-top:1px solid var(--t-line); }
+
+/* section label row:  ── LABEL ───────────── */
+.t-label{
+  display:flex; align-items:center; gap:10px;
+  font-size:var(--fs-1); font-weight:700; text-transform:uppercase;
+  letter-spacing:.14em; color:var(--t-dim); white-space:nowrap;
+}
+.t-label::after{ content:""; flex:1; border-top:1px solid var(--t-line); }
+.t-label::before{ content:"──"; color:var(--t-line); letter-spacing:0; }
+
+/* bracketed tag:  [VERIFY]  [LAP 03/05]  [PASS] */
+.t-tag{
+  display:inline-block; font-size:var(--fs-1); font-weight:700;
+  letter-spacing:.04em; white-space:nowrap;
+  color:var(--t-dim); border:1px solid var(--t-line);
+  padding:1px 7px; background:var(--t-well);
+}
+.t-tag-acc { color:#0A0A0A; background:var(--t-acc); border-color:var(--t-acc); }
+.t-tag-open{ color:var(--t-acc); border-color:var(--t-acc); background:var(--t-acc-dim); }
+.t-tag-ok  { color:var(--t-ink); border-color:var(--t-dim); font-weight:800; }
+
+/* ── buttons ──────────────────────────────────────────────────────── */
+.t-btn{
+  font-family:var(--mono); font-size:var(--fs-2); font-weight:700;
+  text-transform:uppercase; letter-spacing:.06em;
+  border:1px solid var(--t-line); background:var(--t-panel); color:var(--t-ink);
+  padding:11px 22px; cursor:pointer; transition:none;
+}
+.t-btn:hover:not(:disabled){ border-color:var(--t-ink); }
+.t-btn:disabled{ opacity:.35; cursor:not-allowed; }
+.t-btn-acc{ background:var(--t-acc); border-color:var(--t-acc); color:#0A0A0A; }
+.t-btn-acc:hover:not(:disabled){ background:var(--t-ink); border-color:var(--t-ink); }
+.t-btn-ghost{ background:transparent; color:var(--t-dim); }
+.t-btn-ghost:hover:not(:disabled){ color:var(--t-ink); border-color:var(--t-dim); }
+.t-btn-sm{ padding:7px 14px; font-size:var(--fs-1); }
+
+/* ── forms ────────────────────────────────────────────────────────── */
+.t-input, .t-select{
+  width:100%; font-family:var(--mono); font-size:var(--fs-2);
+  background:var(--t-well); border:1px solid var(--t-line); color:var(--t-ink);
+  padding:10px 12px;
+}
+.t-input::placeholder{ color:var(--t-faint); }
+.t-input:focus, .t-select:focus{ border-color:var(--t-acc); outline:none; }
+textarea.t-input{ resize:vertical; line-height:1.6; }
+input[type="range"]{ accent-color:var(--t-acc); }
+
+/* drop zone */
+.t-drop{
+  border:1px dashed var(--t-faint); background:var(--t-well);
+  padding:22px 16px; text-align:center; cursor:pointer;
+}
+.t-drop:hover, .t-drop.t-drop-hover{ border-color:var(--t-acc); }
+.t-drop.t-drop-ok{ border-style:solid; border-color:var(--t-dim); }
+
+/* ── header stepper ───────────────────────────────────────────────── */
+.t-step{ color:var(--t-faint); font-size:var(--fs-1); font-weight:700; letter-spacing:.06em; }
+.t-step-active{ color:#0A0A0A; background:var(--t-acc); padding:1px 7px; }
+.t-step-done  { color:var(--t-ink); }
+
+/* ── the blinking block cursor — the only motion in the app ───────── */
+@keyframes t-blink{ 50%{ opacity:0; } }
+.t-cursor{
+  display:inline-block; width:.6em; height:1.05em;
+  background:var(--t-acc); vertical-align:text-bottom;
+  animation:t-blink 1s steps(2, start) infinite;
+}
+/* running marker used inside cards — replaces the old pulse dot */
+.pulse-dot{
+  display:inline-block; width:.6em; height:1.05em; flex:none;
+  background:var(--t-acc);
+  animation:t-blink 1s steps(2, start) infinite;
+}
+
+/* cards appear instantly — machines don't ease */
+.card-in{ animation:none; }
+
+/* ── score meter (replaces the circular gauge) ────────────────────── */
+.gauge{ display:flex; flex-direction:column; gap:2px; }
+.t-meter-blocks{
+  font-size:var(--fs-1); letter-spacing:.05em; color:var(--t-acc);
+  white-space:pre;
+}
+.t-meter-blocks .off{ color:var(--t-line); }
+
+/* iteration progress — real state only: width = n/max, set instantly */
+#iterBar{ background:var(--t-acc); transition:none; }
+.bar-fill{ transition:none; }
+
+/* ── log / timeline components ────────────────────────────────────── */
+.api-log{ background:var(--t-well); border:1px solid var(--t-line); }
+.api-log > div{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+details.hood{ background:var(--t-well); border:1px solid var(--t-line); }
+details.hood > summary{ list-style:none; cursor:pointer; color:var(--t-faint); }
 details.hood > summary::-webkit-details-marker{ display:none; }
+details.hood > summary:hover{ color:var(--t-acc); }
+details.hood[open] > summary{ border-bottom:1px solid var(--t-line); }
 
-/* slim dark scrollbars for the timeline and the resume preview */
-.nice-scroll::-webkit-scrollbar{ width:9px; }
-.nice-scroll::-webkit-scrollbar-thumb{ background:#243049; border-radius:9px; }
+.nice-scroll::-webkit-scrollbar{ width:8px; height:8px; }
+.nice-scroll::-webkit-scrollbar-thumb{ background:var(--t-line); }
 .nice-scroll::-webkit-scrollbar-track{ background:transparent; }
 
-/* range sliders pick up the brand colour */
-input[type="range"]{ accent-color:#6366F1; }
+/* ── 9-check grid (verify cards, Technical Log) ───────────────────── */
+.check-grid{ display:flex; flex-direction:column; margin-top:8px; border:1px solid var(--t-line); }
+.check-row-tl{
+  display:grid; grid-template-columns:34px 1fr; grid-template-rows:auto auto;
+  gap:0 8px; padding:5px 8px; font-size:var(--fs-1); line-height:1.4;
+}
+.check-row-tl + .check-row-tl{ border-top:1px solid var(--t-line); }
+.check-icon-tl{ grid-row:1; grid-column:1; font-weight:800; }
+.check-pass-tl .check-icon-tl{ color:var(--t-ink); }
+.check-fail-tl .check-icon-tl{ color:var(--t-acc); }
+.check-name-tl{ grid-row:1; grid-column:2; font-weight:600; color:var(--t-dim); }
+.check-pass-tl .check-name-tl{ color:var(--t-ink); }
+.check-fail-tl .check-name-tl{ color:var(--t-acc); }
+.check-evid-tl{ grid-row:2; grid-column:2; font-size:var(--fs-1); color:var(--t-dim); margin-top:1px; }
 
+/* ── persistent checklist panel ───────────────────────────────────── */
+#checklistPanel{ background:var(--t-panel); border:1px solid var(--t-line); }
+.cl-row{ user-select:none; border-left:2px solid transparent; }
+.cl-pending .cl-icon-wrap{ color:var(--t-faint); }
+.cl-pending .cl-check-name{ color:var(--t-faint); }
+.cl-pass .cl-icon-wrap { color:var(--t-ink); font-weight:800; }
+.cl-pass .cl-check-name{ color:var(--t-ink); }
+.cl-fail{ border-left-color:var(--t-acc); background:var(--t-acc-dim); }
+.cl-fail .cl-icon-wrap { color:var(--t-acc); font-weight:800; }
+.cl-fail .cl-check-name{ color:var(--t-acc); }
+.cl-evidence{ color:var(--t-dim); line-height:1.4; margin-top:2px; }
+
+/* state flip — instant two-step, no easing: the row snaps off, snaps on */
+@keyframes cl-flip{
+  0%,49%{ opacity:0; }
+  50%,100%{ opacity:1; }
+}
+.cl-flipping{ animation:cl-flip 240ms steps(2, jump-none); }
 
 /* ═══════════════════════════════════════════════════════════════════
-   LOOP THEATER — §B3 — FLOWCHART SVG VISUALIZATION
-   Nodes light up driven by real events. Zero setTimeout.
+   LOOP DIAGRAM (Theater) — a live ASCII flowchart.
+   Node/arrow classes are toggled by real loop events only.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── theater container ────────────────────────────────────────────── */
-#theater{ padding:1.25rem 1rem 0; }
+#theater{ padding:16px 0 0; }
 
-/* ── score header ─────────────────────────────────────────────────── */
-.theater-lap-num{
-  font-size:.9rem; font-weight:700;
-  color:#94A3B8; letter-spacing:.05em; text-align:center;
+.t-diagram{
+  background:var(--t-well); border:1px solid var(--t-line);
+  padding:18px 14px; overflow-x:auto;
 }
-.theater-score-big{
-  font-size:3.5rem; font-weight:800;
-  font-variant-numeric:tabular-nums; line-height:1;
-  background:linear-gradient(135deg,#38BDF8,#10B981);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-  background-clip:text; transition:all .5s ease; text-align:center;
-}
-.theater-score-delta{
-  display:inline-flex; align-items:center; gap:.25rem;
-  font-size:.8rem; font-weight:700; font-family:ui-monospace,monospace;
-  padding:.2rem .6rem; border-radius:999px; border:1px solid transparent;
-  transition:all .4s ease; margin:0 auto;
-}
-.theater-score-delta.up   { border-color:#10B981; background:rgba(16,185,129,.12); color:#6ee7b7; }
-.theater-score-delta.down { border-color:#F43F5E; background:rgba(244,63,94,.12);  color:#fda4af; }
-.theater-score-delta.flat { border-color:#64748B; background:rgba(100,116,139,.1); color:#94A3B8; }
-
-/* ── flowchart SVG wrapper ────────────────────────────────────────── */
-.flowchart-wrap{
-  border-radius:14px;
-  overflow:hidden;
-  box-shadow:0 4px 32px rgba(0,0,0,.4);
-}
-.flowchart-svg{
-  display:block; width:100%; height:auto;
-  border-radius:14px;
+.t-diagram pre{
+  margin:0; font-family:var(--mono); font-size:var(--fs-1);
+  line-height:1.45; color:var(--t-faint); white-space:pre;
 }
 
-/* ── NODE SHAPES ──────────────────────────────────────────────────── */
-.fc-node .fc-shape{
-  stroke-width:2;
-  transition: fill .35s ease, stroke .35s ease, filter .35s ease;
-}
+/* node states — instant */
+.tn{ color:var(--t-faint); }
+.tn-active{ color:#0A0A0A; background:var(--t-acc); font-weight:700; }
+.tn-done  { color:var(--t-ink); font-weight:700; }
 
-/* idle — dim dark */
-.fc-node.fc-idle .fc-shape{ fill:#131A2A; stroke:#243049; }
-.fc-node.fc-idle .fc-title,
-.fc-node.fc-idle .fc-title-sm { fill:#475569; }
-.fc-node.fc-idle .fc-sub       { fill:#2D3748; }
+/* arrow states */
+.ta{ color:var(--t-line); }
+.ta-live { color:var(--t-acc); font-weight:700; }
+.ta-taken{ color:var(--t-dim); }
 
-/* active — glowing, pulsing border */
-@keyframes fc-node-pulse{
-  0%,100%{ stroke-width:2.5; opacity:1; }
-  50%    { stroke-width:4;   opacity:.9; }
+/* score readout above the diagram */
+.t-readout{
+  display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  padding:10px 0 14px;
 }
-.fc-node.fc-active .fc-shape{
-  fill:var(--fc-fill, #1E1B4B);
-  stroke:var(--fc-stroke, #6366F1);
-  stroke-width:3;
-  animation:fc-node-pulse 1.3s ease-in-out infinite;
-  filter:drop-shadow(0 0 8px var(--fc-stroke, #6366F1));
-}
-.fc-node.fc-active .fc-title,
-.fc-node.fc-active .fc-title-sm{ fill:#F1F5F9; }
-.fc-node.fc-active .fc-sub{ fill:#94A3B8; }
+.t-readout-score{ font-size:var(--fs-5); font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+.t-readout-delta{ font-size:var(--fs-2); font-weight:700; color:var(--t-dim); }
+.t-readout-delta.up{ color:var(--t-ink); }
+.t-readout-delta.down{ color:var(--t-acc); }
+.t-readout-lap{ font-size:var(--fs-1); color:var(--t-dim); text-transform:uppercase; letter-spacing:.1em; }
 
-/* done — lit up, no pulse */
-.fc-node.fc-done .fc-shape{
-  fill:var(--fc-fill-done, #0F2922);
-  stroke:var(--fc-stroke-done, #10B981);
-  stroke-width:2.5;
-}
-.fc-node.fc-done .fc-title,
-.fc-node.fc-done .fc-title-sm{ fill:#A7F3D0; }
-.fc-node.fc-done .fc-sub{ fill:#6EE7B7; opacity:.7; }
-
-/* stop node completed — green tint, steady */
-.fc-node.fc-stop-done .fc-shape{
-  fill:#0D2B1F; stroke:#10B981; stroke-width:3;
-  filter:drop-shadow(0 0 10px #10B981);
-}
-.fc-node.fc-stop-done .fc-title,
-.fc-node.fc-stop-done .fc-title-sm{ fill:#6EE7B7; }
-
-/* ── PER-NODE accent colours ─────────────────────────────────────── */
-#fc-node-context  { --fc-fill:#1A1740; --fc-stroke:#6366F1; --fc-fill-done:#121030; --fc-stroke-done:#818CF8; }
-#fc-node-worker   { --fc-fill:#2A1A50; --fc-stroke:#8B5CF6; --fc-fill-done:#1A0F38; --fc-stroke-done:#A78BFA; }
-#fc-node-verifier { --fc-fill:#0B2845; --fc-stroke:#38BDF8; --fc-fill-done:#081C30; --fc-stroke-done:#7DD3FC; }
-#fc-node-decide   { --fc-fill:#2C1E08; --fc-stroke:#F59E0B; --fc-fill-done:#1C1300; --fc-stroke-done:#FCD34D; }
-#fc-node-stop     { --fc-fill:#2C0A14; --fc-stroke:#F43F5E; }
-
-/* ── NODE TEXT ──────────────────────────────────────────────────────
-   SVG text inherits nothing from CSS in some engines, so we set
-   font-* directly as SVG presentation attrs in the JS template.
-   These classes give fallback values and smoothness.             */
-.fc-title{
-  font-size:13px; font-weight:700;
-  font-family:'Inter', ui-sans-serif, sans-serif;
-  pointer-events:none;
-  transition: fill .35s ease;
-}
-.fc-title-sm{
-  font-size:10.5px; font-weight:600;
-  font-family:'Inter', ui-sans-serif, sans-serif;
-  pointer-events:none;
-  transition: fill .35s ease;
-}
-.fc-sub{
-  font-size:9.5px; font-family:ui-monospace, monospace;
-  pointer-events:none;
-  transition: fill .35s ease;
-}
-.fc-sub-stop{ fill:#64748B; }
-
-/* ── ARROWS ──────────────────────────────────────────────────────── */
-.fc-arrow{ transition:opacity .35s ease; pointer-events:none; }
-.fc-arrow-dim  { opacity:.22; }
-.fc-arrow-live { opacity:1; }
-.fc-arrow-taken{ opacity:1; }
-
-/* YES/NO inline labels */
-.fc-label-yes{ font-size:11px; font-family:ui-monospace,monospace; font-weight:700; fill:#10B981; }
-.fc-label-no {
-  font-size:11px; font-family:ui-monospace,monospace; font-weight:700; fill:#6366F1;
-  transition:opacity .35s ease;
-}
-.fc-label-no.fc-arrow-dim{ opacity:.2; }
-
-/* Marching-ants on the loop-back dashed arrow */
-@keyframes fc-march{
-  to{ stroke-dashoffset:-26; }
-}
-#fc-arrow-loop.fc-arrow-live path{
-  animation: fc-march .65s linear infinite;
-}
-#fc-arrow-loop .fc-loop-label{
-  font-size:11px; font-family:ui-monospace,monospace; font-weight:600;
-  transition:opacity .35s ease;
-}
-
-/* ── Score badge inside SVG Context node ─────────────────────────── */
-.fc-badge-text{
-  font-size:10px; font-weight:700; font-family:ui-monospace,monospace;
-  fill:#A5B4FC;
-}
-
-/* ── CAPTION PANELS ─────────────────────────────────────────────── */
+/* caption lines under the diagram */
 .theater-caption{
-  min-height:48px; border-radius:12px;
-  border:1px solid #243049; background:#131A2A;
-  padding:.75rem 1rem; font-size:.8rem; line-height:1.5;
-  color:#CBD5E1; transition:all .3s ease; margin-top:.5rem;
+  border:1px solid var(--t-line); background:var(--t-panel);
+  padding:10px 12px; font-size:var(--fs-1); line-height:1.55;
+  color:var(--t-dim); margin-top:8px;
 }
+.theater-caption.active{ border-color:var(--t-acc); color:var(--t-ink); }
 .theater-caption-label{
-  font-size:.65rem; font-weight:700;
-  text-transform:uppercase; letter-spacing:.12em;
-  color:#475569; margin-bottom:.3rem;
+  font-size:var(--fs-1); font-weight:800; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--t-faint); margin-bottom:3px;
 }
-.theater-caption.active{
-  border-color:#4F46E5; background:rgba(79,70,229,.08);
-  box-shadow:0 0 0 1px rgba(99,102,241,.2);
-}
+.theater-caption.active .theater-caption-label{ color:var(--t-acc); }
 
-/* ── FINISH BANNER ──────────────────────────────────────────────── */
-@keyframes flag-wave{
-  0%  { transform:skewX(-2deg) scale(1); }
-  50% { transform:skewX(2deg) scale(1.01); }
-  100%{ transform:skewX(-2deg) scale(1); }
-}
+/* finish readout — appears only on the real stop event */
 .theater-finish{
-  display:none; border-radius:16px; overflow:hidden;
-  border:2px solid #10B981;
-  background:linear-gradient(135deg,rgba(16,185,129,.15),rgba(99,102,241,.1));
-  padding:1.25rem 1.5rem; text-align:center; margin-top:1rem;
-  animation:flag-wave 2s ease-in-out infinite;
+  display:none; border:1px solid var(--t-ink); background:var(--t-panel);
+  padding:14px 16px; margin-top:10px;
 }
 .theater-finish.visible{ display:block; }
 .theater-finish-headline{
-  font-size:1.1rem; font-weight:800;
-  background:linear-gradient(90deg,#10B981,#38BDF8);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-  background-clip:text; margin-bottom:.4rem;
+  font-size:var(--fs-3); font-weight:800; letter-spacing:.04em;
+  text-transform:uppercase; margin-bottom:4px;
 }
-.theater-finish-reason{ font-size:.8rem; color:#94A3B8; line-height:1.5; }
+.theater-finish-reason{ font-size:var(--fs-1); color:var(--t-dim); line-height:1.6; }
 
-/* ── EXPLAINER STRIP ────────────────────────────────────────────── */
-.theater-explainer{
-  margin-top:1.25rem; border-radius:12px;
-  border:1px solid #1B2438; background:#0F1929; overflow:hidden;
-}
+/* explainer strip */
+.theater-explainer{ border:1px solid var(--t-line); background:var(--t-panel); margin-top:12px; }
 .theater-explainer summary{
-  list-style:none; cursor:pointer;
-  padding:.65rem 1rem;
-  font-size:.72rem; font-weight:600;
-  color:#64748B; letter-spacing:.06em; text-transform:uppercase;
-  display:flex; align-items:center; justify-content:space-between;
-  transition:color .2s ease;
+  list-style:none; cursor:pointer; padding:9px 12px;
+  font-size:var(--fs-1); font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--t-faint); display:flex; justify-content:space-between;
 }
 .theater-explainer summary::-webkit-details-marker{ display:none; }
-.theater-explainer summary:hover{ color:#94A3B8; }
-.theater-explainer[open] summary{ color:#CBD5E1; border-bottom:1px solid #1B2438; }
-.theater-explainer-body{
-  padding:.75rem 1rem 1rem;
-  font-size:.78rem; line-height:1.6; color:#94A3B8;
-}
-.theater-explainer-body p{ margin-bottom:.5rem; }
-.theater-legend{
-  display:grid; grid-template-columns:1fr 1fr; gap:.4rem .75rem; margin-top:.6rem;
-}
-.theater-legend-item{ display:flex; align-items:flex-start; gap:.4rem; font-size:.72rem; line-height:1.4; color:#94A3B8; }
-.theater-legend-icon{ font-size:1rem; flex-shrink:0; line-height:1.2; }
+.theater-explainer summary:hover{ color:var(--t-dim); }
+.theater-explainer[open] summary{ color:var(--t-dim); border-bottom:1px solid var(--t-line); }
+.theater-explainer-body{ padding:10px 12px 12px; font-size:var(--fs-1); line-height:1.65; color:var(--t-dim); }
+.theater-explainer-body p{ margin-bottom:6px; }
+.theater-legend{ display:grid; grid-template-columns:1fr; gap:3px; margin-top:8px; }
+@media (min-width:640px){ .theater-legend{ grid-template-columns:1fr 1fr; } }
+.theater-legend-item{ display:flex; gap:8px; font-size:var(--fs-1); line-height:1.5; color:var(--t-dim); }
+.theater-legend-icon{ color:var(--t-ink); font-weight:800; flex:none; }
 
-
-/* ═══════════════════════════════════════════════════════════════════
-   PERSISTENT CHECKLIST PANEL — §2a
-   The 9 named checks, always visible. Updated only on real verify:done events.
-   The teaching visual: students watch the red ✗ wall turn green ✓ lap by lap.
-   ═══════════════════════════════════════════════════════════════════ */
-
-#checklistPanel{
-  border-radius:16px;
-  border:1px solid #1B2438;
-  background:#0F1929;
-  overflow:hidden;
-}
-
-/* individual check rows */
-.cl-row{
-  cursor:default;
-  user-select:none;
-}
-.cl-pending .cl-icon-wrap{ color:#475569; }
-.cl-pending .cl-check-name{ color:#64748B; }
-
-.cl-pass{ background:rgba(16,185,129,.06); }
-.cl-pass .cl-check-name{ color:#A7F3D0; }
-
-.cl-fail{ background:rgba(244,63,94,.06); }
-.cl-fail .cl-check-name{ color:#FDA4AF; }
-
-.cl-evidence{
-  color:#94A3B8;
-  line-height:1.4;
-  margin-top:2px;
-}
-
-/* Flip animation — fires when a check changes state at a real verify:done event */
-@keyframes cl-flip{
-  0%  { transform:scaleX(1);   opacity:1; }
-  40% { transform:scaleX(0);   opacity:0; }
-  60% { transform:scaleX(0);   opacity:0; }
-  100%{ transform:scaleX(1);   opacity:1; }
-}
-.cl-flipping{ animation:cl-flip .45s ease; }
-
-/* ═══════════════════════════════════════════════════════════════════
-   CHECK-GRID — 9-check result table inside Technical View verify cards
-   ═══════════════════════════════════════════════════════════════════ */
-
-.check-grid{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  margin-top:8px;
-}
-.check-row-tl{
-  display:grid;
-  grid-template-columns:18px 1fr;
-  grid-template-rows:auto auto;
-  gap:0 6px;
-  padding:5px 6px;
-  border-radius:8px;
-  border:1px solid transparent;
-  font-size:11.5px;
-  line-height:1.35;
-}
-.check-pass-tl{
-  background:rgba(16,185,129,.06);
-  border-color:rgba(16,185,129,.2);
-}
-.check-fail-tl{
-  background:rgba(244,63,94,.06);
-  border-color:rgba(244,63,94,.2);
-}
-.check-icon-tl{
-  grid-row:1;
-  grid-column:1;
-  font-weight:700;
-  padding-top:1px;
-}
-.check-pass-tl .check-icon-tl{ color:#10B981; }
-.check-fail-tl  .check-icon-tl{ color:#F43F5E; }
-.check-name-tl{
-  grid-row:1; grid-column:2;
-  font-weight:600;
-}
-.check-pass-tl .check-name-tl{ color:#A7F3D0; }
-.check-fail-tl  .check-name-tl{ color:#FDA4AF; }
-.check-evid-tl{
-  grid-row:2; grid-column:2;
-  font-size:10.5px; color:#94A3B8; line-height:1.4;
-  font-style:italic;
-  margin-top:2px;
+/* ── resume preview (Download page) ───────────────────────────────── */
+.t-preview-name{ font-size:var(--fs-4); font-weight:800; letter-spacing:.02em; }
+.t-preview-head{
+  margin:18px 0 6px; padding-bottom:3px; border-bottom:1px solid var(--t-line);
+  font-size:var(--fs-1); font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--t-acc);
 }

@@ -20,10 +20,10 @@ import { $, el, esc, show } from './dom.js?v=4';
 import { fileToText } from './parser.js?v=4';
 import { runLoop } from './loop.js?v=4';
 import { readSettings, validate, inputsComplete, restoreSettings } from './settings.js?v=4';
-import { createProcessView } from './timeline.js?v=4';
-import { createTheaterView } from './theater.js?v=4';
-import { createChecklistView } from './checklist.js?v=4';
-import { renderResults } from './results.js?v=4';
+import { createProcessView } from './timeline.js?v=5';
+import { createTheaterView } from './theater.js?v=5';
+import { createChecklistView } from './checklist.js?v=5';
+import { renderResults } from './results.js?v=5';
 import { downloadPDF, downloadTXT } from './resume.js?v=4';
 
 const app = {
@@ -63,12 +63,14 @@ function setActiveTab(which /* 'tech' | 'theater' */) {
   thtrBtn.setAttribute('aria-selected', isTech ? 'false' : 'true');
 
   if (isTech) {
-    techBtn.className = 'view-tab rounded-xl px-5 py-2 text-sm font-semibold transition-all bg-gradient-to-r from-brand-indigo to-brand-violet text-white shadow shadow-brand-violet/30';
-    thtrBtn.className = 'view-tab rounded-xl px-5 py-2 text-sm font-semibold transition-all text-ink-muted hover:text-ink hover:bg-raised/60';
+    techBtn.className = 'view-tab t-btn t-btn-sm t-btn-acc';
+    thtrBtn.className = 'view-tab t-btn t-btn-sm t-btn-ghost';
   } else {
-    thtrBtn.className = 'view-tab rounded-xl px-5 py-2 text-sm font-semibold transition-all bg-gradient-to-r from-brand-indigo to-brand-violet text-white shadow shadow-brand-violet/30';
-    techBtn.className = 'view-tab rounded-xl px-5 py-2 text-sm font-semibold transition-all text-ink-muted hover:text-ink hover:bg-raised/60';
+    thtrBtn.className = 'view-tab t-btn t-btn-sm t-btn-acc';
+    techBtn.className = 'view-tab t-btn t-btn-sm t-btn-ghost';
   }
+  techBtn.style.border = '0';
+  thtrBtn.style.border = '0';
 }
 
 $('techViewBtn').addEventListener('click', () => setActiveTab('tech'));
@@ -88,19 +90,21 @@ function go(page) {
     const label = li.querySelector('.step-label');
 
     if (n < page) {                       // done
-      num.className = 'step-num flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold border border-ok/40 bg-ok/15 text-emerald-300';
-      num.textContent = '✓';
-      label.className = 'step-label hidden sm:inline text-xs font-medium text-emerald-300';
+      num.className = 'step-num t-step t-step-done';
+      num.textContent = '[✓]';
+      label.className = 'step-label hidden sm:inline t-step t-step-done pl-1';
       li.removeAttribute('aria-current');
     } else if (n === page) {              // active
-      num.className = 'step-num flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold bg-gradient-to-br from-brand-indigo to-brand-violet text-white shadow shadow-brand-violet/40';
-      num.textContent = String(n);
-      label.className = 'step-label hidden sm:inline text-xs font-medium text-ink';
+      num.className = 'step-num t-step t-step-active';
+      num.textContent = `[${n}]`;
+      label.className = 'step-label hidden sm:inline t-step pl-1';
+      label.style.color = '#E8E8E3';
       li.setAttribute('aria-current', 'step');
     } else {                              // upcoming
-      num.className = 'step-num flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold border border-line bg-raised text-ink-faint';
-      num.textContent = String(n);
-      label.className = 'step-label hidden sm:inline text-xs font-medium text-ink-faint';
+      num.className = 'step-num t-step';
+      num.textContent = `[${n}]`;
+      label.className = 'step-label hidden sm:inline t-step pl-1';
+      label.style.color = '';
       li.removeAttribute('aria-current');
     }
   });
@@ -114,8 +118,8 @@ function refreshGate() {
   const ready = inputsComplete();
   $('tailorBtn').disabled = !ready;
   $('gateHint').textContent = ready
-    ? 'Ready — the loop will run live on the next page.'
-    : 'Add a resume, a job description and an API key to begin.';
+    ? 'ready. the loop runs live on the next page.'
+    : 'awaiting: resume + job description + api key';
 }
 
 ['resume', 'jd', 'apiKey'].forEach(id => $(id).addEventListener('input', refreshGate));
@@ -130,7 +134,7 @@ $('tailorBtn').addEventListener('click', async () => {
     settings = readSettings();
     validate(settings);
   } catch (e) {
-    $('err').textContent = '⚠️ ' + e.message;
+    $('err').textContent = '[ERR] ' + e.message;
     show($('err'));
     return;
   }
@@ -214,12 +218,12 @@ drop.addEventListener('keydown', e => {
 });
 drop.addEventListener('dragover', e => {
   e.preventDefault();
-  drop.classList.add('border-brand-indigo', 'bg-raised/40');
+  drop.classList.add('t-drop-hover');
 });
-drop.addEventListener('dragleave', () => drop.classList.remove('border-brand-indigo', 'bg-raised/40'));
+drop.addEventListener('dragleave', () => drop.classList.remove('t-drop-hover'));
 drop.addEventListener('drop', e => {
   e.preventDefault();
-  drop.classList.remove('border-brand-indigo', 'bg-raised/40');
+  drop.classList.remove('t-drop-hover');
   const file = e.dataTransfer.files[0];
   if (file) loadResumeFile(file);
 });
@@ -229,19 +233,19 @@ $('file').addEventListener('change', e => {
 });
 
 async function loadResumeFile(file) {
-  drop.innerHTML = `<div class="text-sm font-medium">⏳ Reading ${esc(file.name)}…</div>`;
+  drop.innerHTML = `<div class="t-body font-bold">READING ${esc(file.name.toUpperCase())}…</div>`;
   try {
     const text = await fileToText(file);
     $('resume').value = text;
-    drop.classList.add('border-ok/60');
+    drop.classList.add('t-drop-ok');
     drop.innerHTML = `
-      <div class="text-sm font-medium text-emerald-300">✅ ${esc(file.name)}</div>
-      <div class="mt-1 text-xs text-ink-faint">${text.length.toLocaleString()} characters extracted — edit below if the parse looks off</div>`;
+      <div class="t-body font-bold">[✓] ${esc(file.name)}</div>
+      <div class="mt-1 t-small t-faint">${text.length.toLocaleString()} chars extracted — edit below if the parse looks off</div>`;
   } catch (e) {
-    drop.classList.remove('border-ok/60');
+    drop.classList.remove('t-drop-ok');
     drop.innerHTML = `
-      <div class="text-sm font-medium text-rose-300">⚠️ Could not read ${esc(file.name)}</div>
-      <div class="mt-1 text-xs text-ink-faint">${esc(e.message)} — paste the text below instead</div>`;
+      <div class="t-body font-bold t-acc">[ERR] could not read ${esc(file.name)}</div>
+      <div class="mt-1 t-small t-faint">${esc(e.message)} — paste the text below instead</div>`;
   }
   refreshGate();
 }
@@ -250,12 +254,12 @@ async function loadResumeFile(file) {
 $('jdFile').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  $('jdFileName').textContent = '⏳ reading…';
+  $('jdFileName').textContent = 'reading…';
   try {
     $('jd').value = await fileToText(file);
-    $('jdFileName').textContent = `✅ ${file.name}`;
+    $('jdFileName').textContent = `[✓] ${file.name}`;
   } catch (err) {
-    $('jdFileName').textContent = `⚠️ ${err.message}`;
+    $('jdFileName').textContent = `[ERR] ${err.message}`;
   }
   refreshGate();
 });
