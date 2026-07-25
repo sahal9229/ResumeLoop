@@ -1,105 +1,108 @@
-# ResumeLoop
+# ResumeLoop v4
 
-An ATS resume tailor whose real subject is **loop engineering**. The tailoring never happens
-in one hidden call — it runs as a visible `while` loop, and the whole trace is on screen.
+> **Live Demo:** [https://resume-loop.vercel.app](https://resume-loop.vercel.app)
 
-Three pages, like a wizard:
+An ATS resume tailor whose real subject is **loop engineering**. The tailoring never happens in one hidden call — it runs as a visible, deterministic `while` loop, and the whole trace is rendered live on screen.
 
-1. **Upload** — resume (PDF/DOCX/TXT or paste) + job description + loop settings
-2. **Process** — the live loop-tracking dashboard: every iteration's Thought / Action /
-   Observation, a climbing score gauge, and the exact stop condition that ended the loop
-3. **Download** — the tailored resume, before→after score, honest gaps report, change log,
-   and a structured **PDF export** (real selectable text via pdfmake — never an image)
+---
 
-## Run it
+## 🌐 Live Demo
 
-Double-click **`serve.cmd`** (Windows) or run **`./serve.sh`** (macOS/Linux). It starts a tiny
-local server and opens `http://127.0.0.1:8777/`. No install, no build step — the app is plain
-HTML + Tailwind (CDN) + vanilla JS modules.
+Try the live application online: **[https://resume-loop.vercel.app](https://resume-loop.vercel.app)**
 
-> Why a server at all? Browsers refuse to load ES modules from `file://`. Opening `index.html`
-> by double-clicking shows a banner explaining exactly this.
+---
 
-- Free Gemini key: https://aistudio.google.com/apikey (default model `gemini-2.5-flash`)
-- Or pick an OpenRouter model in the dropdown: https://openrouter.ai/keys
+## 🔁 What is ResumeLoop v4?
 
-The key is stored in `localStorage` and sent from the browser straight to the provider.
-Fine for a local class demo — **not** for a public deployment. For that, move the loop behind
-a server that holds the key and stream each iteration out over SSE; the front-end would barely
-change, since the dashboard already consumes one event per phase.
+ResumeLoop implements a **Worker → Verifier → Decide** agentic cycle:
+1. **🛠 DO (The Worker):** Revises the resume driven strictly by a prioritized **to-do list** of failed quality checks.
+2. **🔍 VERIFY (The Verifier):** An independent LLM call (separate role, zero worker reasoning context) that checks the revised draft against **9 fixed, named quality rules** and compares against the original resume for honesty.
+3. **⚖️ DECIDE (Deterministic Code):** Evaluates whether all checks pass (`perfect`), iterations are exhausted (`max`), or the same checks failed twice (`plateau`).
 
-## Project structure — one concern per file
+---
 
-```
-index.html        the three pages + persistent 1-2-3 stepper (markup only)
-css/custom.css    the few things Tailwind can't do (gauge ring, pulse, slide-in)
-js/main.js        entry point + page state machine (Upload → Process → Download)
-js/loop.js        THE LOOP ENGINE — emits events, never touches the DOM
-js/timeline.js    renders the engine's events as the live dashboard (page 2)
-js/results.js     renders the Download page (page 3)
-js/resume.js      plain text → structure → pdfmake PDF / preview
-js/llm.js         the ONE place we talk to a model (+ 429 retry with backoff)
-js/prompts.js     the five stage prompts + honesty/ATS guardrail text
-js/parser.js      PDF / DOCX / TXT → plain text, all client-side
-js/settings.js    reads the form, validates, persists to localStorage
-js/dom.js         tiny shared DOM helpers
-serve.cmd/.sh     one-click local server
-```
+## 📋 The 9 Fixed Quality Checks
 
-| What to point at in class | Where |
-|---|---|
-| **The single LLM call** — only file that knows a model exists | [js/llm.js](js/llm.js) `callLLM()` |
-| Rate-limit resilience — exponential backoff on 429/5xx | [js/llm.js](js/llm.js) `callLLM()` retry loop |
-| Defensive JSON parsing + one re-ask | [js/llm.js](js/llm.js) `askJSON()` |
-| The five stage prompts (JD, parser, scorer, planner, reviser) | [js/prompts.js](js/prompts.js) |
-| **The loop itself** — a plain `while(true)` | [js/loop.js](js/loop.js) `runLoop()` |
-| The stop condition | the three `if (…) { stopCode = …; break; }` lines at the top of the loop |
-| Engine ↔ UI decoupling — the event vocabulary | comment block at the top of [js/loop.js](js/loop.js) |
-| The honesty guardrail wording | [js/prompts.js](js/prompts.js) `HONESTY` |
+Every lap checks the draft against 9 explicit rules:
 
-## The loop
+| Check ID | Rule Name | Description |
+|---|---|---|
+| `KW-MUSTHAVE` | Must-have ATS Keywords | All essential job requirements present & woven naturally |
+| `KW-NICE` | Nice-to-have Keywords | Optional keywords included where candidate's experience supports them |
+| `BULLET-IMPACT` | Bullet Impact Structure | Action verb + method + concrete result |
+| `NO-FILLER` | Zero Filler / Passive Voice | Ban on "responsible for", "worked on", "helped with", etc. |
+| `SUMMARY` | Target Role Summary | 2-3 line role-focused summary naming core qualifications |
+| `TENSE` | Tense Consistency | Past roles in past tense; current role in present tense |
+| `RELEVANCE` | Target JD Alignment | Every bullet and section directly serves the job |
+| `HONESTY` | Ground Truth Check | Strict line-by-line guardrail against original resume |
+| `ATS-FORMAT` | ATS-Safe Layout | Plain text, standard uppercase headings, no column/table parse risk |
 
-State carried across every pass: `jobRequirements`, `currentResume`, `atsScore`,
-`previousScore`, `gaps`, `iteration`, `changeLog`.
+---
 
-```
-INITIALIZE   extract JD requirements → parse resume → score the original (baseline)
+## 🎬 Dual View Dashboard
 
-LOOP
-  (b) DECIDE    stop if  atsScore >= targetScore
-                      or iterations >= maxIterations
-                      or improvement < 2               ← plateaued
-  (c) THINK     pick the top 2-4 highest-impact fixes for this pass
-  (d) ACT       rewrite the resume applying only those fixes
-  (a) OBSERVE   re-score → new score, matched/missing keywords, weak bullets
+### 1. ⚙️ Technical View
+- **Persistent Quality Checklist Panel:** Live 9-check board with flip animations (`cl-flip`) on `verify:done` events.
+- **"Why another lap?" Card:** Highlights the exact failing checks that trigger the next iteration.
+- **Under the Hood:** Expandable drawers showing raw JSON emitted by the models.
 
-OUTPUT       final resume + before/after + honest gap report + change log → page 3
+### 2. 🎬 Loop Theater (Flowchart SVG)
+- Interactive, animated flowchart diagram: `Context (Resume + Checks) → AI Writer → Verifier → Decision Diamond → Loop-back Arrow`.
+- Real-time node state lighting (`idle`, `active`, `done`) and marching-ants loop arrow—driven 100% by real loop events with zero synthetic timers.
+
+---
+
+## 🚀 How to Run Locally
+
+### 1. Clone & Serve
+```bash
+git clone https://github.com/your-username/ResumeLoop.git
+cd ResumeLoop
 ```
 
-Each pass costs three model calls (plan, revise, score), plus three fixed ones
-(JD extract, resume parse, gap report).
+Double-click **`serve.cmd`** (Windows) or run **`./serve.sh`** (macOS/Linux).  
+It starts a local web server and opens `http://127.0.0.1:8777/`.
 
-The engine emits plain event objects (`iter:start`, `phase:done`, `score`, `stop`, …) and
-the dashboard renders them — the loop is logic, the dashboard is a view. That separation is
-itself the lesson.
+> **Note:** Browsers require HTTP/HTTPS to load ES modules (`type="module"`). Opening `index.html` directly via `file://` will show a helpful warning banner.
 
-## Teaching levers on the Upload page
+### 2. Add API Key
+- **Free Gemini API Key:** [Google AI Studio](https://aistudio.google.com/apikey) (Default model: `gemini-2.5-flash`)
+- **OpenRouter Keys:** [OpenRouter](https://openrouter.ai/keys) (Select any model from the dropdown)
 
-- **Target ATS score** slider — drop it to 60 and the loop stops after one pass; raise it to
-  95 and watch it grind into the plateau or the max-iterations ceiling instead.
-- **Max iterations** slider — set it to 1 to show a loop that never reaches its goal.
-- **Model** dropdown — same loop, different brain. The loop is the architecture; the model is
-  a swappable part.
-- Every card on the Process page has a **"🔍 Under the hood"** drawer showing the raw JSON the
-  model returned for that stage.
+Your API key is saved locally in `localStorage` and sent directly from your browser to the AI provider.
 
-## Honesty guardrails
+---
 
-The reviser is instructed never to invent employers, titles, dates, degrees, certifications,
-or metrics, and to only weave in a keyword where the candidate's existing experience genuinely
-supports it. When it refuses a planned fix it says so (`couldNotDo`), that shows up in the
-Action phase as "🚫 refused to fake", and the missing requirement lands in the
-**"Gaps we could not fix"** report on the Download page instead of in the resume.
+## 📁 Project Structure
 
-Output is deliberately plain text with standard uppercase headings — single column, no tables
-or graphics — and the PDF export keeps it that way (pdfmake, real text, Roboto).
+```text
+index.html        Three-page container (Upload, Process, Download) + Checklist Panel
+css/custom.css    Gauge ring, flowchart animations, cl-flip keyframe, check grid
+js/main.js        Entry point + page state machine + tripleEmit event fanout
+js/loop.js        THE LOOP ENGINE — DO-VERIFY-DECIDE state loop (pure logic)
+js/checklist.js   Persistent 9-check quality board component
+js/timeline.js    Technical View renderer (cards, score deltas, "Why another lap?")
+js/theater.js     Flowchart SVG Loop Theater component
+js/results.js     Download page renderer (final checklist, PDF export, gaps)
+js/resume.js      Plain text parsing → structure → pdfmake PDF export
+js/prompts.js     The 9 check defs, verifyPrompt, doPrompt, polishPrompt, gapsPrompt
+js/llm.js         LLM communication module with 429 retry + backoff
+js/parser.js      Client-side PDF / DOCX / TXT text extractor
+js/settings.js    Form validation, settings state, localStorage persistence
+js/dom.js         Shared DOM helper utilities
+```
+
+---
+
+## 🛡️ Honesty Guardrail Architecture
+
+ResumeLoop enforces strict honesty guardrails:
+- The **Verifier** compares every revision against the **original unedited resume**.
+- If a keyword or metric cannot be backed by original candidate experience, the Worker flags it (`couldNotDo`).
+- Missing requirements land in the **"Gaps we could not fix"** report on the Download page, rather than fabricating experience.
+
+---
+
+## 📜 License
+
+MIT License — feel free to use, modify, and learn from this project.
