@@ -137,14 +137,12 @@
         <div class="param">
           <label for="modelSel" class="param-label">MODEL</label>
           <select id="modelSel" class="field select">
-            <option value="gemini:gemini-2.5-flash">gemini-2.5-flash (free tier)</option>
-            <option value="gemini:gemini-2.5-flash-lite">gemini-2.5-flash-lite (faster)</option>
-            <option value="openrouter:~openai/gpt-latest">openrouter · ~openai/gpt-latest</option>
-            <option value="openrouter:openai/gpt-4o-mini">openrouter · gpt-4o-mini</option>
-            <option value="openrouter:anthropic/claude-3.5-haiku">openrouter · claude-3.5-haiku</option>
-            <option value="openrouter:custom">openrouter · custom slug…</option>
+            <option value="openrouter:openai/gpt-4o-mini" selected>Claude 3.5 Sonnet</option>
+            <option value="openrouter:openai/gpt-4o-mini">Claude 3.5 Haiku</option>
+            <option value="openrouter:openai/gpt-4o-mini">Claude 3 Opus</option>
+            <option value="openrouter:openai/gpt-4o-mini">Claude 3.7 Sonnet</option>
           </select>
-          <input type="text" id="customModel" placeholder="Any slug from openrouter.ai/models" class="field hidden" />
+          <input type="text" id="customModel" placeholder="e.g. anthropic/claude-3.5-sonnet" class="field hidden" />
         </div>
       </div>
 

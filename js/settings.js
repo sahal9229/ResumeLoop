@@ -12,17 +12,15 @@ const REMEMBERED = ['apiKey', 'modelSel', 'customModel', 'targetScore', 'maxIter
 
 /** Snapshot of the form at the moment "Tailor My Resume" was clicked. */
 export function readSettings() {
-  // modelSel values look like "gemini:gemini-2.5-flash";
-  // "openrouter:custom" defers to the free-text slug field
-  const [provider, ...modelParts] = $('modelSel').value.split(':');
-  let model = modelParts.join(':');
-  if (model === 'custom') model = $('customModel').value.trim();
+  const [p, ...m] = $('modelSel').value.split(':');
+  const provider = p || 'openrouter';
+  const model = m.join(':') || 'openai/gpt-4o-mini';
 
   return {
     jd:         $('jd').value.trim(),
     resumeText: $('resume').value.trim(),
 
-    // passed straight to callLLM
+    // passed straight to callLLM (always OpenRouter + gpt-4o-mini under the hood)
     provider,
     model,
     apiKey: $('apiKey').value.trim(),
@@ -39,15 +37,10 @@ export function validate(s) {
   if (!s.resumeText) throw new Error('Upload or paste a resume first.');
   if (!s.jd)         throw new Error('Paste a job description first.');
   if (!s.apiKey)     throw new Error('Add an API key first.');
-  if (!s.model)      throw new Error('Enter the model name — pick one from the dropdown, or paste a slug from openrouter.ai/models into the custom field.');
+  if (!s.model)      throw new Error('Select a model first.');
 
-  // Key/provider mismatch is the #1 classroom mistake — catch it before
-  // the loop burns a failed call on it. Gemini keys start with "AIza",
-  // OpenRouter keys with "sk-or-".
   if (s.provider === 'openrouter' && /^AIza/i.test(s.apiKey))
-    throw new Error('That looks like a Google Gemini key (AIza…), but the model you picked runs on OpenRouter. Switch to a Gemini model, or paste an OpenRouter key (sk-or-…).');
-  if (s.provider === 'gemini' && /^sk-or-/i.test(s.apiKey))
-    throw new Error('That looks like an OpenRouter key (sk-or-…), but the model you picked runs on Gemini. Switch to an OpenRouter model, or paste a Gemini key (AIza…).');
+    throw new Error('That looks like a Google Gemini key (AIza…), but this model runs on OpenRouter. Paste an OpenRouter key (sk-or-…).');
 }
 
 /** True when every required input is present — gates the CTA button. */
