@@ -120,17 +120,10 @@
 
       <div class="grid-2 params-grid">
         <div class="param">
-          <div id="targetVal" class="param-num">85</div>
-          <label for="targetScore" class="param-label">TARGET SCORE</label>
-          <input type="range" id="targetScore" class="range range-blue" min="50" max="100" step="1" value="85" />
-          <p class="cap">The loop halts at or above this score.</p>
-        </div>
-
-        <div class="param">
           <div id="maxVal" class="param-num">5</div>
           <label for="maxIterations" class="param-label">MAX LAPS</label>
           <input type="range" id="maxIterations" class="range range-yellow" min="1" max="8" step="1" value="5" />
-          <p class="cap">Hard ceiling — never exceeded.</p>
+          <p class="cap">How many times the loop may go around. It stops early when all 9 rules pass.</p>
         </div>
 
         <div class="param">
@@ -253,7 +246,7 @@
     }
   </script>
 
-  <script type="module" src="js/main.js?v=13"></script>
+  <script type="module" src="js/main.js?v=15"></script>
 </body>
 
 </html>

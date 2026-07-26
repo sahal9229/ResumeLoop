@@ -27,8 +27,9 @@ export function readSettings() {
     model,
     apiKey: $('apiKey').value.trim(),
 
-    // the loop's stop-condition knobs
-    targetScore:   clamp($('targetScore').value, 0, 100),
+    // the loop's stop-condition knobs. Target-score UI was removed —
+    // the loop stops on all-pass / out-of-laps / plateau only.
+    targetScore:   $('targetScore') ? clamp($('targetScore').value, 0, 100) : 100,
     maxIterations: clamp($('maxIterations').value, 1, 8)
   };
 }
@@ -61,8 +62,10 @@ export function inputsComplete() {
 /** Restore last session's values and keep them in sync from here on. */
 export function restoreSettings() {
   for (const id of REMEMBERED) {
+    const node = $(id);
+    if (!node) continue;                     // controls may be removed from the UI
     const saved = localStorage.getItem(PREFIX + id);
-    if (saved !== null) $(id).value = saved;
-    $(id).addEventListener('change', () => localStorage.setItem(PREFIX + id, $(id).value));
+    if (saved !== null) node.value = saved;
+    node.addEventListener('change', () => localStorage.setItem(PREFIX + id, node.value));
   }
 }

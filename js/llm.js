@@ -123,7 +123,9 @@ function geminiRequest(model, apiKey, systemPrompt, userPrompt) {
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
       generationConfig: {
-        temperature: 0.3,
+        // 0 = repeatable verdicts. The checker's 9 pass/fail judgments must
+        // not flip lap to lap on sampling noise — that reads as a broken loop.
+        temperature: 0,
         responseMimeType: 'application/json',
         maxOutputTokens: roomy ? 32768 : 8192
       }
@@ -147,7 +149,7 @@ function openRouterRequest(model, apiKey, systemPrompt, userPrompt) {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
     body: {
       model,
-      temperature: 0.3,
+      temperature: 0,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },

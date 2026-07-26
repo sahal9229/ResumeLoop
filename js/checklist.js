@@ -12,7 +12,7 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { $, el } from './dom.js?v=4';
-import { CHECK_DEFS } from './prompts.js?v=4';
+import { CHECK_DEFS } from './prompts.js?v=5';
 
 const IDLE_HINT = 'Hover a square to read the check and the checker’s evidence.';
 

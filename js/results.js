@@ -8,8 +8,8 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { $, el, esc, arr, show } from './dom.js?v=4';
-import { buildCheckGrid } from './checklist.js?v=7';
-import { CHECK_DEFS } from './prompts.js?v=4';
+import { buildCheckGrid } from './checklist.js?v=8';
+import { CHECK_DEFS } from './prompts.js?v=5';
 
 export function renderResults(result) {
   renderScore(result);

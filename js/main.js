@@ -15,10 +15,10 @@
 
 import { $, el, esc, show } from './dom.js?v=4';
 import { fileToText } from './parser.js?v=4';
-import { runLoop } from './loop.js?v=6';
-import { readSettings, validate, inputsComplete, restoreSettings } from './settings.js?v=4';
-import { createTheaterView } from './theater.js?v=10';
-import { renderResults } from './results.js?v=7';
+import { runLoop } from './loop.js?v=8';
+import { readSettings, validate, inputsComplete, restoreSettings } from './settings.js?v=5';
+import { createTheaterView } from './theater.js?v=12';
+import { renderResults } from './results.js?v=8';
 import { downloadPDF, downloadTXT } from './resume.js?v=5';
 
 const app = {
@@ -261,8 +261,7 @@ $('jdFile').addEventListener('change', async e => {
 
 /* ── boot ───────────────────────────────────────────────────────────── */
 
-/* sliders show their value live — the numeral is part of the composition */
-$('targetScore').addEventListener('input', () => { $('targetVal').textContent = $('targetScore').value; });
+/* slider shows its value live — the numeral is part of the composition */
 $('maxIterations').addEventListener('input', () => { $('maxVal').textContent = $('maxIterations').value; });
 
 /* "OpenRouter · custom model…" reveals the free-text slug field */
@@ -271,7 +270,6 @@ $('modelSel').addEventListener('change', syncCustomModel);
 
 restoreSettings();
 syncCustomModel();
-$('targetVal').textContent = $('targetScore').value;
 $('maxVal').textContent = $('maxIterations').value;
 refreshGate();
 go(1);

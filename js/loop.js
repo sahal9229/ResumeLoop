@@ -34,6 +34,8 @@
      do:done      {n, data:{revisedResume,changesMade[{fixes,change}],couldNotDo[]}, raw, timestampMs}
      decide:done  {n, decision:'loop'|'stop', stopCode, stopReason, failedChecks[], score, timestampMs}
      iter:done    {n, score, previousScore, delta, timestampMs}
+     revert       {n, bad, best, timestampMs}
+                   ← this lap's draft scored worse; the loop keeps the best draft
      score        {score, previous, baseline, iteration, maxIterations, history, timestampMs}
      note         {stage, text, timestampMs}
      stop         {code, reason, score, baseline, target, iterations, maxIterations, history, timestampMs}
@@ -45,11 +47,11 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 import { arr, clamp } from './dom.js?v=4';
-import { askJSON } from './llm.js?v=4';
+import { askJSON } from './llm.js?v=5';
 import {
   jdPrompt, resumePrompt, verifyPrompt, doPrompt, polishPrompt, gapsPrompt,
   CHECK_DEFS, checksToScore
-} from './prompts.js?v=4';
+} from './prompts.js?v=5';
 
 /** Priority order for the worker's to-do list (highest impact first). */
 const CHECK_PRIORITY = CHECK_DEFS.map(c => c.id);
@@ -91,6 +93,11 @@ export async function runLoop(settings, emit, signal) {
   let currentResume   = originalResume;
   let lastVerify      = null;     // latest full verify result
   let lastScore       = 0;
+  // the best verified draft so far — the loop never carries a worse
+  // draft forward, and the final answer is always this one
+  let bestResume      = originalResume;
+  let bestScore       = 0;
+  let bestVerify      = null;
   let baseline        = null;
   let baselineScored  = false;
   let iteration       = 0;
@@ -121,6 +128,7 @@ export async function runLoop(settings, emit, signal) {
     lastScore   = baseline;
     lastVerify  = { checks: baselineChecks, summaryVerdict: baselineVRes.json?.summaryVerdict || '' };
     baselineScored = true;
+    bestScore = baseline; bestResume = currentResume; bestVerify = lastVerify;
     scoreHistory.push({ label: 'start', score: baseline });
     emit(stamped({ type: 'verify:done', n: 0, purpose: 'baseline',
       data: lastVerify, score: baseline, raw: baselineVRes.raw }));
@@ -161,10 +169,11 @@ export async function runLoop(settings, emit, signal) {
       // prevFailedIds and failedIds come from the same verify, so comparing
       // them always matched and killed the loop after one lap — a bug.)
 
-      // Sort failed checks by priority; pass top 4 to the worker this lap
+      // Sort failed checks by priority; the worker gets ALL of them each lap.
+      // (Previously capped at 4 — that left failures unaddressed every lap
+      // and the score plateaued while laps burned.)
       const topFailed = [...failed]
-        .sort((a, b) => CHECK_PRIORITY.indexOf(a.id) - CHECK_PRIORITY.indexOf(b.id))
-        .slice(0, 4);
+        .sort((a, b) => CHECK_PRIORITY.indexOf(a.id) - CHECK_PRIORITY.indexOf(b.id));
 
       emit(stamped({ type: 'iter:start', n, max: maxIterations,
         failedChecks: failed, previousScore: lastScore }));
@@ -216,12 +225,22 @@ export async function runLoop(settings, emit, signal) {
       const delta = newScore - lastScore;
       emit(stamped({ type: 'iter:done', n, score: newScore, previousScore: lastScore, delta }));
 
-      prevFailedIds = newFailedIds;
-      lastScore     = newScore;
-      lastVerify    = newVerify;
+      // ─ KEEP THE BEST: a rewrite that scored worse is discarded — the
+      //   next lap always builds on the highest-scoring draft so far.
+      if (newScore >= bestScore) {
+        bestScore = newScore; bestResume = currentResume; bestVerify = newVerify;
+        lastScore = newScore; lastVerify = newVerify;
+      } else {
+        emit(stamped({ type: 'revert', n, bad: newScore, best: bestScore }));
+        currentResume = bestResume;
+        lastScore     = bestScore;
+        lastVerify    = bestVerify;
+      }
+      // plateau compares against the failure set of the draft carried forward
+      prevFailedIds = new Set(lastVerify.checks.filter(c => !c.pass).map(c => c.id));
       iteration     = n;
       scoreHistory.push({ label: `iter ${n}`, score: newScore });
-      emit(stamped({ type: 'score', score: newScore, previous: lastScore - delta, baseline,
+      emit(stamped({ type: 'score', score: newScore, previous: newScore - delta, baseline,
         iteration: n, maxIterations, history: scoreHistory }));
 
       if (decision === 'stop') {

@@ -173,14 +173,16 @@ ${resume}
 /**
  * Worker → { revisedResume, changesMade: [{fixes, change}], couldNotDo }
  *
- * The worker receives the EXACT checks that failed verification as its to-do list.
- * It fixes ONLY those checks (max 4, already prioritized by the engine).
+ * The worker receives the EXACT checks that failed verification as its to-do list
+ * (all of them, prioritized by the engine) and must fix every one this pass.
  * Each change references which check it addresses.
  */
 export const doPrompt = (failedChecks, resume, req, originalResume) => ({
   sys: `You are the revision step of an iterative resume-tailoring agent.
 You have a specific to-do list: the EXACT checks that failed independent verification.
-Your ONLY job is to fix these specific failures — do not change parts of the resume that are already passing.
+Fix EVERY check on the list in this single revision — do not leave any for a later pass.
+Be thorough: if a bullet fails a rule, rewrite that bullet completely. Do not change
+parts of the resume that are already passing.
 
 ${PROFESSIONAL_WRITING_RULES}
 

@@ -32,39 +32,40 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 /* Map stop codes to finish headlines + plain-language messages */
 function stopHeadline(code) {
   return {
-    perfect: 'ALL 9 CHECKS PASS',
+    perfect: 'ALL 9 RULES PASS',
     target:  'TARGET REACHED',
     max:     'OUT OF LAPS',
-    plateau: 'NO PROGRESS — HALTED',
+    plateau: 'STUCK — NEEDS A HUMAN',
     aborted: 'STOPPED BY YOU',
-    error:   'ERROR — HALTED'
+    error:   'ERROR — STOPPED'
   }[code] || 'LOOP COMPLETE';
 }
 
 function stopMessage(ev) {
-  if (ev.code === 'perfect')  return `All 9 checks passed after ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''}. The critic found nothing left to fix.`;
+  if (ev.code === 'perfect')  return `All 9 rules passed after ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''}. The checker found nothing left to fix.`;
   if (ev.code === 'target')   return `Score hit the target (${ev.score}). ${ev.iterations} lap${ev.iterations !== 1 ? 's' : ''} run.`;
-  if (ev.code === 'max')      return `The guard stopped the loop: out of laps after ${ev.iterations}. Some checks are still open — raise max laps to continue.`;
-  if (ev.code === 'plateau')  return 'The same checks failed twice with no change — this may need human input.';
-  if (ev.code === 'aborted')  return `Stopped early by you. The last completed draft is shown. Score: ${ev.score}.`;
+  if (ev.code === 'max')      return `The safety check stopped the loop: out of laps after ${ev.iterations}. Some rules still failing — raise max laps and run again.`;
+  if (ev.code === 'plateau')  return 'The same rules failed twice with no change — the AI is stuck and a human should look.';
+  if (ev.code === 'aborted')  return `Stopped early by you. The last finished draft is shown. Score: ${ev.score}.`;
   return ev.reason || 'Loop finished.';
 }
 
 /* API stages → short labels for the live ticker */
 const STAGE_LABEL = {
-  jd: 'PARSER', resume: 'PARSER', verify: 'CRITIC',
-  do: 'TOOL', polish: 'POLISH', gaps: 'GAPS'
+  jd: 'READ', resume: 'READ', verify: 'CHECK',
+  do: 'REWRITE', polish: 'POLISH', gaps: 'GAPS'
 };
 
-/* The ring: five stages, clockwise. Angles in degrees, screen coords
-   (0° = right, 90° = down). GUARD upper-left; BRAIN at 12 o'clock;
-   the DECIDE→GUARD segment on the lower-left is the send-back lane. */
+/* The ring: five stages, clockwise, in plain words. Angles in degrees,
+   screen coords (0° = right, 90° = down). SAFETY CHECK upper-left;
+   PLAN at 12 o'clock; the PASS?→SAFETY CHECK segment on the lower-left
+   is the go-around-again lane. */
 const RING = [
-  { key: 'guard',  num: '02', name: 'GUARD',  desc: 'cost & time limits', a: 198 },
-  { key: 'brain',  num: '03', name: 'BRAIN',  desc: 'picks the fix list', a: 270 },
-  { key: 'tool',   num: '04', name: 'TOOL',   desc: 'the rewrite call',   a: 342 },
-  { key: 'critic', num: '05', name: 'CRITIC', desc: '9 independent checks', a: 54 },
-  { key: 'decide', num: '06', name: 'DECIDE', desc: 'all pass?',          a: 126 }
+  { key: 'guard',  num: '02', name: 'SAFETY CHECK', desc: 'laps · calls · time', a: 198 },
+  { key: 'brain',  num: '03', name: 'PLAN',    desc: 'pick what to fix',    a: 270 },
+  { key: 'tool',   num: '04', name: 'REWRITE', desc: 'AI rewrites the resume', a: 342 },
+  { key: 'critic', num: '05', name: 'CHECK',   desc: 'a second AI · 9 rules', a: 54 },
+  { key: 'decide', num: '06', name: 'PASS?',   desc: 'all 9 rules ok?',     a: 126 }
 ];
 const RING_R = 40;   // ring radius, in viewBox units (viewBox is 0 0 100 100)
 
@@ -207,7 +208,7 @@ export function createTheaterView() {
     // ── left column: MISSION → the ring → HUMAN OK → COMPLETE ──
     const flowCol = el('div', 'flow');
 
-    flowCol.append(mkNode('mission', '01', 'MISSION', 'resume + job + target'));
+    flowCol.append(mkNode('mission', '01', 'START', 'your resume + the job post'));
     flowCol.append(el('div', 'conn conn-entry'));
 
     const wrap = el('div', 'ring-wrap');
@@ -230,7 +231,7 @@ export function createTheaterView() {
     nodeEls.tool.append(chips);
 
     // the send-back label, inside the ring near the lower-left arc
-    sendLblEl = el('span', 'send-lbl', 'FAIL — SEND BACK');
+    sendLblEl = el('span', 'send-lbl', 'FAILED — GO AROUND AGAIN');
     wrap.append(sendLblEl);
 
     // the lap number — the center of the circle
@@ -241,11 +242,11 @@ export function createTheaterView() {
     flowCol.append(wrap);
 
     const exitConn = el('div', 'conn conn-exit');
-    exitConn.append(el('span', 'conn-lbl', 'APPROVED'));
+    exitConn.append(el('span', 'conn-lbl', 'ALL RULES PASS'));
     flowCol.append(exitConn);
-    flowCol.append(mkNode('human', '07', 'HUMAN OK', 'your final click'));
+    flowCol.append(mkNode('human', '07', 'YOUR OK', 'you approve the result'));
     flowCol.append(el('div', 'conn conn-exit'));
-    flowCol.append(mkNode('complete', '08', 'COMPLETE', ''));
+    flowCol.append(mkNode('complete', '08', 'DONE', ''));
 
     // ── right column: stage, plain line, live ticker, score ──
     const side = el('div', 'proc-side');
@@ -257,7 +258,7 @@ export function createTheaterView() {
     feedEl.setAttribute('aria-live', 'polite');
 
     scoreBlockEl = el('div', 'score-block hidden');
-    const scoreLabel = el('div', 'score-label', 'SCORE');
+    const scoreLabel = el('div', 'score-label', 'ATS SCORE');
     const scoreRow   = el('div', 'score-row');
     scoreEl = el('span', 'num-120', '0');
     deltaEl = el('span', 'delta-mono', '');
@@ -286,11 +287,11 @@ export function createTheaterView() {
     if (!whyEl) return;
     whyEl.classList.remove('hidden');
     whyEl.innerHTML = `
-      <div class="why-label">VERIFICATION FAILED — ${failed.length} CHECK${failed.length !== 1 ? 'S' : ''} OPEN</div>
+      <div class="why-label">CHECK FAILED — ${failed.length} RULE${failed.length !== 1 ? 'S' : ''} STILL FAILING</div>
       <ul>${failed.map(c =>
         `<li>${esc(c.id)} · ${esc(c.name)}${c.evidence ? ` — ${esc(c.evidence)}` : ''}</li>`
       ).join('')}</ul>
-      <div class="why-kicker">THESE ${failed.length} BECOME LAP ${nextLap}'S FIX LIST</div>`;
+      <div class="why-kicker">THESE ${failed.length} BECOME LAP ${nextLap}'S TO-DO LIST</div>`;
   }
   function hideWhy() { whyEl?.classList.add('hidden'); }
 
@@ -298,16 +299,16 @@ export function createTheaterView() {
 
   function onSetupStart(ev) {
     setNode('mission', 'wait');
-    setStageName('MISSION');
-    setLine(ev.step === 'jd' ? 'Reading the job posting.' : 'Reading your resume.');
-    pushFeed('MISSION', ev.step === 'jd' ? 'Reading the job posting' : 'Reading your resume', 'info');
+    setStageName('START');
+    setLine(ev.step === 'jd' ? 'Reading the job post.' : 'Reading your resume.');
+    pushFeed('START', ev.step === 'jd' ? 'Reading the job post' : 'Reading your resume', 'info');
   }
 
   function onSetupDone(ev) {
-    pushFeed('MISSION', ev.step === 'jd' ? 'Job posting parsed' : 'Resume parsed', 'ok');
+    pushFeed('START', ev.step === 'jd' ? 'Job post understood' : 'Resume understood', 'ok');
     if (ev.step === 'resume') {
       setNode('mission', 'done');
-      setLine('Mission understood. First check comes next.');
+      setLine('Inputs understood. First check comes next.');
     }
   }
 
@@ -319,16 +320,16 @@ export function createTheaterView() {
         `${Math.round(ev.elapsedMs / 1000)}S · ` +
         (ev.ok ? 'WITHIN BUDGET' : 'BUDGET REACHED');
     }
-    pushFeed('GUARD', `Lap ${ev.n}/${ev.max} · ${ev.apiCalls} calls · ${Math.round(ev.elapsedMs / 1000)}s — ${ev.ok ? 'within budget' : 'budget reached'}`, 'ok');
+    pushFeed('SAFETY', `Lap ${ev.n}/${ev.max} · ${ev.apiCalls} calls · ${Math.round(ev.elapsedMs / 1000)}s — ${ev.ok ? 'ok to continue' : 'limit reached'}`, 'ok');
   }
 
   function onVerifyStart(ev) {
     setNode('critic', 'wait');
-    setStageName('CRITIC');
+    setStageName('CHECK');
     setLine(ev.n === 0
-      ? 'Scoring the original resume against 9 named checks.'
-      : 'An independent critic reads the new draft. It has no memory of the writer.');
-    pushFeed('CRITIC', ev.n === 0 ? 'Scoring the original resume' : 'Checking the new draft against 9 rules', 'yellow');
+      ? 'A second AI scores your original resume against 9 rules.'
+      : 'A second AI checks the new draft. It never talks to the writer.');
+    pushFeed('CHECK', ev.n === 0 ? 'Scoring your original resume' : 'Checking the new draft against 9 rules', 'yellow');
   }
 
   function onVerifyDone(ev) {
@@ -338,11 +339,11 @@ export function createTheaterView() {
     const score  = ev.score ?? 0;
     updateScore(score, ev.n === 0 ? null : currentScore);
     setLine(ev.n === 0
-      ? `The original scores ${score}. ${failed.length} of 9 checks fail — that is the starting grid.`
+      ? `Your original resume scores ${score}. ${failed.length} of 9 rules fail — the loop exists to fix them.`
       : failed.length === 0
-        ? `All 9 checks pass. Score ${score}.`
-        : `Score ${score}. ${failed.length} check${failed.length !== 1 ? 's' : ''} still open.`);
-    pushFeed('CRITIC', `Verdict: score ${score} — ${failed.length ? failed.length + ' of 9 failing' : 'all 9 pass'}`, failed.length ? 'red' : 'ok');
+        ? `All 9 rules pass. Score ${score}.`
+        : `Score ${score}. ${failed.length} rule${failed.length !== 1 ? 's' : ''} still failing.`);
+    pushFeed('CHECK', `Result: score ${score} — ${failed.length ? failed.length + ' of 9 failing' : 'all 9 pass'}`, failed.length ? 'red' : 'ok');
   }
 
   function onIterStart(ev) {
@@ -359,16 +360,16 @@ export function createTheaterView() {
     setLapNum(String(ev.n).padStart(2, '0'));
     setStageName(`LAP ${ev.n} OF ${ev.max}`);
     const n = arr(ev.failedChecks).length;
-    setLine(`The brain takes the ${n} failed check${n !== 1 ? 's' : ''} as this lap's fix list.`);
-    pushFeed('BRAIN', `Lap ${ev.n} begins — fix list: ${n} failed check${n !== 1 ? 's' : ''}`, 'blue');
+    setLine(`The AI takes the ${n} failed rule${n !== 1 ? 's' : ''} as this lap's to-do list.`);
+    pushFeed('PLAN', `Lap ${ev.n} begins — to-do list: ${n} failed rule${n !== 1 ? 's' : ''}`, 'blue');
   }
 
   function onDoStart() {
     setNode('brain', 'done');
     setNode('tool', 'wait');
-    setStageName('TOOL');
-    setLine('The rewrite call is running — only what the failed checks name.');
-    pushFeed('TOOL', 'Rewriting the resume from the fix list', 'blue');
+    setStageName('REWRITE');
+    setLine('The AI is rewriting the resume — only the parts that failed.');
+    pushFeed('REWRITE', 'Rewriting the resume from the to-do list', 'blue');
   }
 
   function onDoDone(ev) {
@@ -378,23 +379,23 @@ export function createTheaterView() {
     const first   = changes[0];
     const text    = first ? (typeof first === 'object' ? first.change : first) : 'Resume revised.';
     setLine(`${text}${changes.length > 1 ? ` (+${changes.length - 1} more changes)` : ''}`);
-    pushFeed('TOOL', `Draft ready — ${changes.length || 1} change${changes.length !== 1 ? 's' : ''} saved to memory`, 'ok');
+    pushFeed('REWRITE', `New draft ready — ${changes.length || 1} change${changes.length !== 1 ? 's' : ''} saved to memory`, 'ok');
   }
 
   function onDecideDone(ev) {
-    setStageName('DECIDE');
+    setStageName('PASS?');
     const failed = arr(ev.failedChecks);
 
     if (ev.decision === 'stop') {
       setNode('decide', 'done');
-      setLine(ev.stopReason || 'Halting.');
-      pushFeed('DECIDE', ev.stopReason || 'Stop', 'ok');
+      setLine(ev.stopReason || 'Stopping.');
+      pushFeed('PASS?', ev.stopReason || 'Stop', 'ok');
     } else {
       setNode('decide', 'on');      // the red block: not done
-      setLoopEdge(true);            // the send-back arc lights red
-      setLine(`Not done. The critic found ${failed.length} problem${failed.length !== 1 ? 's' : ''} — they continue around the circle as the next fix list.`);
+      setLoopEdge(true);            // the go-around arc lights red
+      setLine(`Not done. ${failed.length} rule${failed.length !== 1 ? 's' : ''} still failing — the loop goes around again.`);
       renderWhy(failed, ev.n + 1);
-      pushFeed('DECIDE', `Not done — sending ${failed.length} failure${failed.length !== 1 ? 's' : ''} back for lap ${ev.n + 1}`, 'red');
+      pushFeed('PASS?', `Not done — ${failed.length} failure${failed.length !== 1 ? 's' : ''} go around again as lap ${ev.n + 1}'s to-do list`, 'red');
     }
   }
 
@@ -414,8 +415,8 @@ export function createTheaterView() {
         <div class="finish-head">${esc(stopHeadline(ev.code))}</div>
         <div class="finish-reason">${esc(stopMessage(ev))}${awaitingHuman
           ? (ev.code === 'perfect' || ev.code === 'target'
-              ? ' The critic has signed off — the final OK is yours, below.'
-              : ' Review what is left and give the final OK below.') : ''}</div>
+              ? ' The checker has signed off — your OK is the last step, below.'
+              : ' Review what is left and give your OK below.') : ''}</div>
         <div class="finish-journey">${arr(ev.history).map(h => h.score).join(' → ')}</div>`;
     }
   }
@@ -434,6 +435,13 @@ export function createTheaterView() {
   function onGapsDone()  { setLine('Gap report ready — it is on the result page.'); }
 
   function onNote(ev) { if (ev.text) setLine(ev.text); }
+
+  /* a lap made things worse — the loop throws that draft away and keeps
+     the best one. This is the memory doing its job. */
+  function onRevert(ev) {
+    setLine(`That draft scored ${ev.bad} — worse than the best so far (${ev.best}). The loop keeps the best draft and goes around again.`);
+    pushFeed('MEMORY', `Draft scored ${ev.bad} < best ${ev.best} — kept the best draft`, 'yellow');
+  }
 
   /* the crashed-tool path, made visible: error captured → sent back → retry.
      Every wire event narrates itself — this IS the try/fail/retry rhythm. */
@@ -484,6 +492,7 @@ export function createTheaterView() {
         case 'do:start':     return onDoStart(ev);
         case 'do:done':      return onDoDone(ev);
         case 'decide:done':  return onDecideDone(ev);
+        case 'revert':       return onRevert(ev);
         case 'stop':         return onStop(ev);
         case 'phase:start':  return onPhaseStart(ev);
         case 'phase:done':   return onPhaseDone(ev);
