@@ -1,11 +1,11 @@
 @echo off
-REM ResumeLoop - start a local server and open the app.
+REM ResumeFit - start a local server and open the app.
 REM ES modules will not load from file://, so this is the way in.
 cd /d "%~dp0"
 
 set PORT=8777
 echo.
-echo   ResumeLoop  ^-^>  http://127.0.0.1:%PORT%/
+echo   ResumeFit  ^-^>  http://127.0.0.1:%PORT%/
 echo   Press Ctrl+C to stop.
 echo.
 

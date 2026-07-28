@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# ResumeLoop - start a local server and open the app.
+# ResumeFit - start a local server and open the app.
 # ES modules will not load from file://, so this is the way in.
 cd "$(dirname "$0")" || exit 1
 
@@ -7,7 +7,7 @@ PORT=8777
 URL="http://127.0.0.1:$PORT/"
 
 echo
-echo "  ResumeLoop  ->  $URL"
+echo "  ResumeFit  ->  $URL"
 echo "  Press Ctrl+C to stop."
 echo
 

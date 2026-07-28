@@ -1,34 +1,35 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   settings.js — read the Upload form once, remember it between runs.
+   settings.js — read the input form once, remember it between runs.
 
    Keeping this here means llm.js never touches the DOM: main.js reads a
    settings snapshot, then hands provider/model/key down to callLLM().
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { $, clamp } from './dom.js?v=4';
+import { $ } from './dom.js?v=6';
 
-const PREFIX = 'rl2_';
-const REMEMBERED = ['apiKey', 'modelSel', 'customModel', 'targetScore', 'maxIterations'];
+const PREFIX = 'rf1_';
+const REMEMBERED = ['apiKey', 'modelSel', 'customModel'];
 
-/** Snapshot of the form at the moment "Tailor My Resume" was clicked. */
+/* Everything routes through OpenRouter: one key, every model. */
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-5';
+
+/** Snapshot of the form at the moment "Build My Resume" was clicked. */
 export function readSettings() {
   const [p, ...m] = $('modelSel').value.split(':');
   const provider = p || 'openrouter';
-  const model = m.join(':') || 'openai/gpt-4o-mini';
+  const selected = m.join(':');
+  const model = selected === 'custom'
+    ? ($('customModel').value.trim() || DEFAULT_MODEL)
+    : (selected || DEFAULT_MODEL);
 
   return {
     jd:         $('jd').value.trim(),
     resumeText: $('resume').value.trim(),
 
-    // passed straight to callLLM (always OpenRouter + gpt-4o-mini under the hood)
+    // passed straight to callLLM
     provider,
     model,
-    apiKey: $('apiKey').value.trim(),
-
-    // the loop's stop-condition knobs. Target-score UI was removed —
-    // the loop stops on all-pass / out-of-laps / plateau only.
-    targetScore:   $('targetScore') ? clamp($('targetScore').value, 0, 100) : 100,
-    maxIterations: clamp($('maxIterations').value, 1, 8)
+    apiKey: $('apiKey').value.trim()
   };
 }
 
@@ -39,17 +40,12 @@ export function validate(s) {
   if (!s.apiKey)     throw new Error('Add an API key first.');
   if (!s.model)      throw new Error('Select a model first.');
 
-  if (s.provider === 'openrouter' && /^AIza/i.test(s.apiKey))
-    throw new Error('That looks like a Google Gemini key (AIza…), but this model runs on OpenRouter. Paste an OpenRouter key (sk-or-…).');
-}
-
-/** True when every required input is present — gates the CTA button. */
-export function inputsComplete() {
-  return Boolean(
-    $('resume').value.trim() &&
-    $('jd').value.trim() &&
-    $('apiKey').value.trim()
-  );
+  // Every model here runs on OpenRouter, so a key from anywhere else will
+  // 401 in a way the user cannot read. Name the mistake up front instead.
+  if (/^AIza/i.test(s.apiKey))
+    throw new Error('That is a Google AI Studio key (AIza…). This app runs every model through OpenRouter — paste an OpenRouter key (sk-or-…) from openrouter.ai/keys.');
+  if (/^sk-proj-|^sk-[A-Za-z0-9]{20,}$/.test(s.apiKey) && !/^sk-or-/i.test(s.apiKey))
+    throw new Error('That looks like a direct OpenAI key. This app runs every model through OpenRouter — paste an OpenRouter key (sk-or-…) from openrouter.ai/keys.');
 }
 
 /** Restore last session's values and keep them in sync from here on. */

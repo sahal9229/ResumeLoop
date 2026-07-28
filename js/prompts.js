@@ -1,266 +1,220 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   prompts.js — v4: Worker → Verifier → Decide architecture.
+   prompts.js — the two prompts that do the work.
 
-   Removed: scorePrompt, planPrompt (replaced by verifyPrompt + doPrompt)
-   Added:   verifyPrompt — the independent checker (separate role, separate call)
-            doPrompt    — the worker, driven by failed-check to-do list
-   Kept:    polishPrompt, gapsPrompt, jdPrompt, resumePrompt, HONESTY, ATS_RULES
+     STAGE 1  analyzePrompt  job description → structured hiring signal
+     STAGE 2  buildPrompt    resume + signal → tailored resume + ATS report
+
+   Everything the model knows about what a good resume looks like is in
+   this file. It is written from how professional resume writers and real
+   ATS parsers actually behave, not from generic "make it better" advice.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* Appended to any stage that can touch resume content. */
-export const HONESTY = `
-NON-NEGOTIABLE HONESTY RULES:
-- NEVER invent employers, job titles, dates, degrees, certifications, tools, or experience the candidate does not already have.
-- You may only rephrase, reprioritise, quantify and surface content that is truthfully already in the resume.
-- Only weave in a keyword if the candidate's existing experience genuinely supports it. If it does not, leave it missing and report it as a gap.
-- Never invent numbers or metrics. If a bullet needs a metric the resume does not contain, rewrite it to be concrete and specific WITHOUT a fabricated figure.
-- Keep the candidate's real voice. No buzzword inflation.
-Reply with ONE valid JSON object and nothing else.`;
+/* ── The non-negotiables. Appended to any stage that writes resume text. ── */
 
-export const ATS_RULES = `
-ATS FORMATTING RULES for any resume text you produce:
-- Plain text only. No tables, columns, graphics, images, text boxes or emoji.
-- Standard uppercase section headings: SUMMARY, SKILLS, EXPERIENCE, PROJECTS, EDUCATION, CERTIFICATIONS.
-- Bullets start with "- ". No fancy glyphs, no smart quotes, no em dashes — plain ASCII only.
-- Keep dates in "Mon YYYY - Mon YYYY" form. Keep contact details on their own lines at the top.`;
+const HONESTY = `
+HONESTY — ABSOLUTE, NO EXCEPTIONS:
+- Never invent an employer, job title, date, degree, certification, tool, or project.
+- Never invent a number. Not a percentage, not a team size, not a user count, not a
+  dollar figure. If a bullet would be stronger with a metric the resume does not
+  contain, write concrete SCOPE instead ("owned the full checkout module", "across
+  three client accounts") — never a fabricated figure.
+- Only claim a skill if the original resume genuinely evidences it. A keyword the
+  candidate cannot back up goes in the gap report, never into the resume.
+- Reframing, reordering, sharpening and quantifying what is already there: yes.
+  Adding what is not there: never.`;
 
-const PROFESSIONAL_WRITING_RULES = `
-PROFESSIONAL RESUME WRITING RULES — HARD REQUIREMENTS:
+const ATS_RULES = `
+ATS FORMATTING — the output must survive a strict resume parser:
+- Plain text only. No tables, columns, text boxes, graphics, icons, or emoji.
+- ASCII only. Straight quotes ('), hyphens (-). No smart quotes, no em dashes (—), no bullets (•).
+- Section headings in UPPERCASE on their own line, drawn from this standard set:
+  PROFESSIONAL SUMMARY, SKILLS, EXPERIENCE, PROJECTS, EDUCATION, CERTIFICATIONS.
+  Never invent creative headings ("What I Bring", "My Journey") — parsers do not know them.
+- Bullets start with "- " and are one line each, never two.
+- Contact details sit on the first lines, above the first heading:
+  line 1 = full name, line 2 = email | phone | linkedin | city. Nothing else.
+- Job entries: "Job Title | Company | Location | Mon YYYY - Mon YYYY" on one line,
+  then its bullets. Current role uses "Present" as the end date.
+- No first-person pronouns. No "References available on request". No photos or URLs to images.`;
 
-RULE 1 — STRONG ACTION VERBS ONLY. Every bullet opens with a powerful, specific verb.
-  Good: Led, Architected, Reduced, Automated, Shipped, Optimized, Owned, Drove, Cut, Scaled,
-        Engineered, Rebuilt, Launched, Accelerated, Consolidated, Designed, Implemented, Overhauled.
-  NEVER: "Responsible for", "Worked on", "Helped with", "Assisted", "Involved in", passive voice.
+/* The craft rules. This is the part that makes the output read like it came
+   from a professional writer rather than from a language model. */
+const WRITING_STANDARD = `
+HOW A PROFESSIONAL RESUME IS WRITTEN — apply every rule:
 
-RULE 2 — VERB VARIETY. No two bullets in the same section start with the same verb.
+1. BULLET FORMULA. Every experience and project bullet:
+     [strong past-tense verb] + [what you built or owned] + [with which technology] + [result or scope]
+   "Rebuilt the checkout flow in React and TypeScript, cutting page load from 4.2s to 1.8s."
+   "Owned the payments integration across three Stripe products, covering 40+ endpoints."
 
-RULE 3 — IMPACT STRUCTURE. Every bullet:
-  [Strong Verb] + [what/scope] + [using specific method or technology] + [measurable or concrete result]
-  Example: "Rebuilt the checkout flow in React and TypeScript, cutting page load time by 40%."
+2. VERBS. Open every bullet with a specific, high-authority verb:
+     Architected, Automated, Built, Consolidated, Cut, Delivered, Designed, Drove,
+     Engineered, Established, Implemented, Improved, Launched, Led, Migrated,
+     Optimized, Overhauled, Owned, Rebuilt, Reduced, Scaled, Shipped, Streamlined.
+   BANNED openings: "Responsible for", "Worked on", "Helped with", "Assisted in",
+   "Involved in", "Participated in", "Tasked with", "Duties included".
+   No two bullets in the same role may open with the same verb.
 
-RULE 4 — HONEST QUANTIFICATION. Use numbers already in the resume. NEVER invent figures.
-  If no real number exists, express concrete scope: "owned the full checkout module" not "increased revenue 23%".
+3. EVIDENCE OVER ADJECTIVES. Cut "passionate", "hardworking", "detail-oriented",
+   "team player", "results-driven", "dynamic", "synergy", "leverage". These say nothing.
+   Replace each with the fact that would make a reader conclude it.
 
-RULE 5 — NO KEYWORD STUFFING. Keywords woven into truthful sentences only. Never appended as a list.
+4. QUANTIFY WHAT IS ALREADY QUANTIFIED. Surface every real number the original
+   resume contains and put it at the END of its bullet where the eye lands.
 
-RULE 6 — HUMAN PHRASING. Ban: "responsible for", "worked on", "helped with", "various", "different",
-  "multiple tasks", "etc.", filler phrases, passive voice. One line per bullet.
+5. KEYWORDS IN SENTENCES. Every must-have keyword the candidate truthfully has must
+   appear in the resume — inside a real sentence describing real work. Never a naked
+   keyword list stuffed at the bottom. The SKILLS section is the one place a grouped
+   list is correct, and it must only list what the experience backs up.
 
-RULE 7 — CONSISTENT TENSE. Past roles = past tense. Current role = present tense. Never mix within a role.
+6. THE SUMMARY. Exactly 2-3 lines. Line 1 names the target role and years of relevant
+   experience. Line 2-3 name the strongest 3-4 matching technologies and the single
+   most impressive real achievement. Never opens with "Motivated" / "Seeking a
+   position" / "Looking for an opportunity" — those are entry-level tells.
 
-RULE 8 — TRIM RUTHLESSLY. Cut anything irrelevant to this specific JD.
+7. TENSE. Current role present tense throughout. Every past role past tense throughout.
+   Never mixed inside one role.
 
-RULE 9 — PROFESSIONAL SUMMARY. 2-3 lines, names target role + candidate's strongest matching qualifications.
-  NOT: "Motivated developer looking for…" NOT: generic, longer than 3 lines.`;
+8. RELEVANCE AND LENGTH. Lead with what this specific job asks for. Cut or compress
+   anything the posting does not care about. 3-5 bullets for recent and relevant roles,
+   1-2 for old or off-target ones. Target one page under 10 years' experience, two above.
+
+9. SKILLS SECTION. Grouped by category with a label, most job-relevant group first:
+     Languages: ...
+     Frameworks: ...
+     Cloud & Tools: ...
+   Never one undifferentiated wall of comma-separated words.
+
+10. NO FILLER. Ban "various", "different", "multiple tasks", "etc.", "successfully",
+    "in order to", and every passive construction. Each bullet earns its line or is cut.`;
 
 /* ═══════════════════════════════════════════════════════════════════════
-   THE 9 FIXED CHECKS — immutable IDs, consistent across all iterations.
-   Score is computed from these weights; the LLM verifier never sets the score.
+   STAGE 1 — read the job description
    ═══════════════════════════════════════════════════════════════════════ */
-export const CHECK_DEFS = [
-  { id: 'KW-MUSTHAVE',   name: 'All must-have JD keywords present (truthfully)',   weight: 25, icon: '🔑' },
-  { id: 'KW-NICE',       name: 'Nice-to-have keywords woven in where truthful',    weight: 10, icon: '✨' },
-  { id: 'BULLET-IMPACT', name: 'Every bullet: action verb + method + result',      weight: 20, icon: '💪' },
-  { id: 'NO-FILLER',     name: 'No filler phrases or passive voice',               weight: 10, icon: '✂️'  },
-  { id: 'SUMMARY',       name: 'Professional summary targets this exact role',     weight: 10, icon: '🎯' },
-  { id: 'TENSE',         name: 'Consistent tense per role (past/present)',         weight:  5, icon: '⏱'  },
-  { id: 'RELEVANCE',     name: 'All content relevant to this specific JD',         weight:  8, icon: '🎪' },
-  { id: 'HONESTY',       name: 'Nothing fabricated vs. original resume',           weight:  7, icon: '🛡'  },
-  { id: 'ATS-FORMAT',    name: 'ATS-safe structure and headings',                  weight:  5, icon: '📋' },
-];
 
-/**
- * Compute a deterministic score from check pass/fail results.
- * Score is always explainable: each check's contribution is (weight * pass ? 1 : 0).
- */
-export function checksToScore(checks) {
-  let total = 0, passing = 0;
-  for (const def of CHECK_DEFS) {
-    const c = checks.find(x => x.id === def.id);
-    total += def.weight;
-    if (c?.pass) passing += def.weight;
-  }
-  return total > 0 ? Math.round((passing / total) * 100) : 0;
-}
+/** @returns {{sys:string,user:string}} → { role, seniority, mustHaves[], niceToHaves[], atsKeywords[], ... } */
+export const analyzePrompt = jd => ({
+  sys: `You are a technical recruiter who configures ATS screening filters. You read a job
+posting and extract exactly what the screening system and the hiring manager will look for.
 
-/* ── INITIALIZE ─────────────────────────────────────────────────────── */
-
-/** JD extractor → { role, hardSkills, softSkills, keywords, yearsRequired, mustHaves, niceToHaves } */
-export const jdPrompt = jd => ({
-  sys: `You are a technical recruiter and ATS analyst. Extract the hiring signal from a job description.
-Return JSON exactly shaped:
-{"role":"string","hardSkills":["..."],"softSkills":["..."],"keywords":["..."],"yearsRequired":"string","mustHaves":["..."],"niceToHaves":["..."]}
-"keywords" = the literal words/phrases an ATS would scan for (12-25 of them, as written in the posting).
-Reply with ONE valid JSON object and nothing else.`,
-  user: `JOB DESCRIPTION:\n"""\n${jd}\n"""`
-});
-
-/** Resume parser → { sections, bullets, skills, experience } */
-export const resumePrompt = resume => ({
-  sys: `You parse resumes into structure.
-Return JSON exactly shaped:
-{"sections":["..."],"bullets":["..."],"skills":["..."],"experience":[{"title":"","company":"","dates":"","bullets":["..."]}]}
-Copy content faithfully. Invent nothing.
-Reply with ONE valid JSON object and nothing else.`,
-  user: `RESUME:\n"""\n${resume}\n"""`
-});
-
-/* ── VERIFY (the independent checker — a SEPARATE role, never sees worker reasoning) ── */
-
-/**
- * Verifier → { checks: [{id,name,pass,evidence}], summaryVerdict }
- *
- * CRITICAL DESIGN: This is NOT the worker. It has a completely different role.
- * It judges only what it sees in the current resume against the fixed 9 checks.
- * It NEVER sees the worker's reasoning, excuses, or change log.
- * The HONESTY check compares against the ORIGINAL resume — this is a real guardrail.
- */
-export const verifyPrompt = (resume, originalResume, req) => ({
-  sys: `You are a strict, skeptical resume reviewer. Your job is to evaluate a resume against a fixed checklist.
-You have NOT seen any previous revision reasoning — you judge only what you see in front of you.
-
-You must evaluate EXACTLY these 9 checks and return ALL 9, always:
-
-CHECK ID        | What it means
-----------------|--------------------------------------------------------------
-KW-MUSTHAVE     | Every must-have keyword from the job requirements appears in the resume, woven into real sentences (not as a bare list). Requires ALL must-haves present.
-KW-NICE         | At least 3 nice-to-have keywords appear where the candidate's experience truthfully supports them.
-BULLET-IMPACT   | Every experience/project bullet follows: strong action verb + what was done + tool/method used + concrete outcome or scope. No exceptions.
-NO-FILLER       | Zero instances of: "responsible for", "worked on", "helped with", "assisted", "involved in", passive voice, or vague filler like "various", "different", "multiple tasks".
-SUMMARY         | The SUMMARY section (2-3 lines) explicitly names the target role, names the candidate's strongest relevant qualifications, and mentions 2+ of the JD's core technologies where truthfully applicable. No generic "motivated developer" language.
-TENSE           | Past roles use past tense CONSISTENTLY throughout. The current role uses present tense CONSISTENTLY. No mixing.
-RELEVANCE       | Every bullet and section serves this specific job. Nothing off-topic for this role is present.
-HONESTY         | COMPARE LINE BY LINE against the ORIGINAL resume. FAIL if anything was ADDED that was NOT in the original: any employer, title, certification, tool, metric, skill, or achievement not supported by the original text.
-ATS-FORMAT      | Plain text only. Standard uppercase headings. Bullets start with "- ". No tables, columns, graphics, smart quotes, em dashes, or emoji in the resume body.
-
-RULES FOR EVIDENCE:
-- Every FAILING check MUST include concrete evidence: quote or point at the specific offending text, or name the specific missing keyword.
-- No vague failures like "needs improvement" or "could be better". Name the exact problem.
-- Passing checks may have brief confirmation evidence ("all 8 must-haves found: React, Node.js, ...").
-- The HONESTY check is binary: if you find even ONE fabricated element not in the original, it FAILS.
-
-Return EXACTLY this JSON shape (all 9 checks, always in this order):
+Return JSON in exactly this shape:
 {
-  "checks": [
-    {"id": "KW-MUSTHAVE",   "name": "All must-have JD keywords present (truthfully)", "pass": true|false, "evidence": "..."},
-    {"id": "KW-NICE",       "name": "Nice-to-have keywords woven in where truthful",  "pass": true|false, "evidence": "..."},
-    {"id": "BULLET-IMPACT", "name": "Every bullet: action verb + method + result",    "pass": true|false, "evidence": "..."},
-    {"id": "NO-FILLER",     "name": "No filler phrases or passive voice",             "pass": true|false, "evidence": "..."},
-    {"id": "SUMMARY",       "name": "Professional summary targets this exact role",   "pass": true|false, "evidence": "..."},
-    {"id": "TENSE",         "name": "Consistent tense per role (past/present)",       "pass": true|false, "evidence": "..."},
-    {"id": "RELEVANCE",     "name": "All content relevant to this specific JD",       "pass": true|false, "evidence": "..."},
-    {"id": "HONESTY",       "name": "Nothing fabricated vs. original resume",         "pass": true|false, "evidence": "..."},
-    {"id": "ATS-FORMAT",    "name": "ATS-safe structure and headings",                "pass": true|false, "evidence": "..."}
-  ],
-  "summaryVerdict": "X of 9 checks failing: [list failing IDs]"
+  "role": "the exact job title as posted",
+  "seniority": "Junior | Mid | Senior | Lead | Principal | Not stated",
+  "yearsRequired": "e.g. '3-5 years' or 'not stated'",
+  "mustHaves": ["hard requirements — the posting says required/must/essential, 5-10 items"],
+  "niceToHaves": ["preferred or bonus items, 3-8 items"],
+  "atsKeywords": ["12-25 literal terms an ATS scans for, spelled exactly as the posting spells them"],
+  "responsibilities": ["what the person will actually do day to day, 4-8 items"],
+  "softSignals": ["culture/working-style signals worth mirroring in tone, 2-4 items"]
 }
+
+RULES:
+- atsKeywords must be verbatim from the posting. If it says "Node.js" do not write "NodeJS".
+  Include both the expansion and the acronym when the posting uses both ("Amazon Web Services (AWS)"
+  becomes two entries: "Amazon Web Services" and "AWS").
+- Split compound requirements. "React and TypeScript with 3 years REST API experience"
+  becomes "React", "TypeScript", "REST APIs" — separate items.
+- mustHaves are only what the posting marks as required. Do not promote a preferred item.
+- Ignore boilerplate: benefits, equal-opportunity statements, company history, salary.
 Reply with ONE valid JSON object and nothing else.`,
-  user: `JOB REQUIREMENTS:\n${JSON.stringify(req, null, 1)}
-
-ORIGINAL RESUME (use for HONESTY check — compare against this):
-"""
-${originalResume}
-"""
-
-CURRENT RESUME TO EVALUATE:
-"""
-${resume}
-"""`
+  user: `JOB POSTING:\n"""\n${jd}\n"""`
 });
 
-/* ── DO (the worker — driven by failed-check to-do list) ─────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   STAGE 2 — write the resume and grade it
+   ═══════════════════════════════════════════════════════════════════════ */
 
 /**
- * Worker → { revisedResume, changesMade: [{fixes, change}], couldNotDo }
- *
- * The worker receives the EXACT checks that failed verification as its to-do list
- * (all of them, prioritized by the engine) and must fix every one this pass.
- * Each change references which check it addresses.
+ * @param {string} resume  the candidate's original resume, plain text
+ * @param {object} req     stage-1 output
+ * @returns {{sys:string,user:string}}
+ *   → { tailoredResume, atsScore, scoreBreakdown[], keywordCoverage[], changes[], gaps[] }
  */
-export const doPrompt = (failedChecks, resume, req, originalResume) => ({
-  sys: `You are the revision step of an iterative resume-tailoring agent.
-You have a specific to-do list: the EXACT checks that failed independent verification.
-Fix EVERY check on the list in this single revision — do not leave any for a later pass.
-Be thorough: if a bullet fails a rule, rewrite that bullet completely. Do not change
-parts of the resume that are already passing.
+export const buildPrompt = (resume, req) => ({
+  sys: `You are a senior executive resume writer. You have placed candidates at top technology
+companies for fifteen years. You know precisely how an ATS parses a document and how a hiring
+manager reads one in the six seconds before deciding.
 
-${PROFESSIONAL_WRITING_RULES}
+Your task: rewrite this candidate's resume so it is the strongest TRUTHFUL match for the target
+role, then grade your own output honestly.
 
-FOR EACH CHANGE YOU MAKE, you must reference WHICH check it fixes, using its exact ID.
-The HONESTY check failing means something was fabricated — your job is to REVERT it to the original, not to add more content.
+${WRITING_STANDARD}
 
-Return JSON exactly shaped:
-{"revisedResume":"the complete revised resume as plain text",
- "changesMade":[{"fixes":"CHECK-ID","change":"short description of what you changed and why"}],
- "couldNotDo":["honest explanation if a check was impossible to fix without fabricating"]}
 ${ATS_RULES}
-${HONESTY}`,
-  user: `JOB REQUIREMENTS:\n${JSON.stringify(req, null, 1)}
 
-ORIGINAL RESUME (reference for HONESTY — do not add anything not here):
-"""
-${originalResume}
-"""
+${HONESTY}
 
-CHECKS THAT FAILED — YOUR TO-DO LIST (fix all of these, prioritized):
-${failedChecks.map((c, i) => `${i + 1}. [${c.id}] ${c.name}\n   Evidence of failure: "${c.evidence}"`).join('\n\n')}
+SCORING — grade the resume you just wrote, out of 100, using these weights:
+  Must-have keyword coverage .... 30   (proportion of must-haves truthfully present)
+  Bullet quality ................ 25   (verb + scope + technology + result, every bullet)
+  Summary strength .............. 12   (role-targeted, specific, 2-3 lines)
+  Skills & relevance ............ 13   (job-relevant content foregrounded, noise cut)
+  ATS formatting ................ 12   (headings, plain text, parseable structure)
+  Nice-to-have coverage ..........  8   (bonus items truthfully present)
+Be a hard grader. A resume missing two must-haves the candidate genuinely lacks cannot score
+above 80 — and that is correct, because the honest ceiling is the honest ceiling. Never inflate.
 
-CURRENT RESUME TO REVISE:
+Return JSON in exactly this shape:
+{
+  "tailoredResume": "the complete rewritten resume as plain text, ready to send",
+  "atsScore": 87,
+  "scoreBreakdown": [
+    {"area": "Must-have keywords", "points": 26, "max": 30, "note": "one specific sentence"},
+    {"area": "Bullet quality", "points": 22, "max": 25, "note": "..."},
+    {"area": "Summary strength", "points": 11, "max": 12, "note": "..."},
+    {"area": "Skills & relevance", "points": 12, "max": 13, "note": "..."},
+    {"area": "ATS formatting", "points": 12, "max": 12, "note": "..."},
+    {"area": "Nice-to-have keywords", "points": 5, "max": 8, "note": "..."}
+  ],
+  "keywordCoverage": [
+    {"keyword": "React", "mustHave": true, "present": true, "where": "short quote from the resume showing it"}
+  ],
+  "changes": [
+    {"what": "what you changed", "why": "which requirement or rule it serves"}
+  ],
+  "gaps": [
+    {"requirement": "Kubernetes", "mustHave": true,
+     "why": "the resume shows no container orchestration experience of any kind",
+     "howToCloseIt": "one concrete, realistic action the candidate can take"}
+  ]
+}
+
+RULES FOR THE REPORT:
+- keywordCoverage must include EVERY must-have and EVERY ATS keyword from the requirements.
+  "present": true only if the term genuinely appears in the resume you wrote, backed by real
+  experience. "where" must quote the actual text — leave it "" when present is false.
+- gaps lists every must-have you could not honestly include. An empty array means the candidate
+  genuinely covers everything. Never write a gap into the resume to make it disappear.
+- changes: 5-12 entries, the substantive edits only, not typo fixes.
+- atsScore must equal the sum of scoreBreakdown points.
+Reply with ONE valid JSON object and nothing else.`,
+
+  user: `TARGET ROLE: ${req?.role || 'not specified'}${req?.seniority ? ` (${req.seniority})` : ''}
+${req?.yearsRequired ? `EXPERIENCE SOUGHT: ${req.yearsRequired}` : ''}
+
+MUST-HAVES (hard requirements):
+${list(req?.mustHaves)}
+
+NICE-TO-HAVES:
+${list(req?.niceToHaves)}
+
+ATS KEYWORDS — spell these exactly as written when they are truthful:
+${list(req?.atsKeywords)}
+
+WHAT THE ROLE ACTUALLY DOES — mirror this language where the candidate's real experience matches:
+${list(req?.responsibilities)}
+
+${req?.softSignals?.length ? `TONE SIGNALS FROM THE POSTING:\n${list(req.softSignals)}\n` : ''}
+CANDIDATE'S CURRENT RESUME — this is the ONLY source of facts. Everything in your output
+must trace back to something in here:
 """
 ${resume}
 """`
 });
 
-/* ── POLISH (runs once after the scoring loop — line-edits only) ─────── */
-
-export const polishPrompt = (resume, role) => ({
-  sys: `You are a professional resume copy-editor doing a final proofreading pass.
-Your ONLY job is line-editing for quality and consistency. You must NOT:
-- Add new keywords or skills
-- Change any fact, date, number, employer, tool, or metric
-- Add experience the candidate does not have
-- Change the meaning of any bullet
-
-Your job IS to:
-- Fix any grammar or spelling errors
-- Ensure consistent tense (past roles = past tense; current role = present tense, throughout)
-- Ensure bullet parallelism — every bullet in a section should use the same grammatical structure
-- Trim any bullets that run longer than two lines
-- Ensure no two bullets in the same section start with the same verb — vary if duplicates found
-- Fix any formatting inconsistencies (spacing, capitalization, date formats)
-- Remove any remaining filler phrases: "responsible for", "worked on", "helped with", "various", "different"
-- Ensure the SUMMARY is exactly 2-3 lines, role-focused, not generic
-
-Return JSON exactly shaped:
-{"polishedResume":"the complete proofread resume as plain text","editsMade":["short description of each edit made"]}
-If nothing needed editing, return an empty editsMade array and the resume unchanged.
-Reply with ONE valid JSON object and nothing else.`,
-  user: `TARGET ROLE: ${role || 'not specified'}
-
-RESUME TO PROOFREAD:
-"""
-${resume}"""`
-});
-
-/* ── GAP REPORT (honest, post-loop) ─────────────────────────────────── */
-
-export const gapsPrompt = (resume, req, finalVerify, stillFailingChecks) => ({
-  sys: `You produce the honest "gaps we could not fix" report for a resume-tailoring agent.
-List every requirement the job asks for that the candidate's resume genuinely does not evidence.
-For each, say plainly why it could not be fixed and what the candidate could do in real life to close it.
-Return JSON exactly shaped:
-{"unfixableGaps":[{"requirement":"","mustHave":true,"why":"","howToActuallyCloseIt":""}]}
-If nothing is genuinely missing, return an empty array.
-Reply with ONE valid JSON object and nothing else.`,
-  user: `JOB REQUIREMENTS:\n${JSON.stringify(req, null, 1)}
-
-FINAL VERIFICATION RESULT:
-${JSON.stringify(finalVerify, null, 1)}
-
-CHECKS STILL FAILING AFTER ALL ITERATIONS:
-${stillFailingChecks.length ? stillFailingChecks.map(c => `- [${c.id}] ${c.name}: ${c.evidence}`).join('\n') : '(none — all checks passed)'}
-
-FINAL RESUME:
-"""
-${resume}"""`
-});
+/** Bullet a list for the user prompt; keeps the prompt readable when a field is empty. */
+function list(items) {
+  if (!Array.isArray(items) || !items.length) return '- (none specified)';
+  return items.map(x => `- ${typeof x === 'string' ? x : JSON.stringify(x)}`).join('\n');
+}

@@ -5,20 +5,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light" />
-  <title>RESUMELOOP — the loop, visible</title>
+  <title>RESUMEFIT — ATS resume builder</title>
+  <meta name="description" content="Rewrite your resume against a job description. ATS-safe output, honest keyword coverage, PDF export." />
 
   <!-- ─────────────────────────────────────────────────────────────────
-     ResumeLoop v5 — a 3-page ATS resume tailor with a transparent
-     agentic loop. Client-side only, no build step.
+     ResumeFit — an ATS resume builder. Client-side only, no build step.
+
+     Two stages, two API calls, no iteration:
+       analyze the posting  →  rewrite the resume + grade it
+
+       Page 1  Input    resume + job description + API key
+       Page 2  Result    resume (editable) + ATS score + keywords + gaps
 
      Identity: BAUHAUS. Paper page, ink structure, three primaries
-     assigned to meaning: BLUE = doing · YELLOW = checking ·
-     RED = decision/stop · INK filled = passed.
+     assigned to meaning: BLUE = the action · YELLOW = attention ·
+     RED = missing/failed · INK filled = present/done.
      Radius 0 or 50%. No shadows. No gradients.
-
-       Page 1  Input      resume + JD + loop parameters
-       Page 2  Process    the loop as a three-arc disc (the heart)
-       Page 3  Result     before/after + final checks + PDF export
 
      Must be served over http:// — see serve.cmd / serve.sh.
      ───────────────────────────────────────────────────────────────── -->
@@ -27,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="css/custom.css?v=12" />
+  <link rel="stylesheet" href="css/custom.css?v=20" />
 
   <!-- third-party parsers + PDF maker, classic scripts on window -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -41,12 +43,11 @@
   <!-- ══════════════ HEADER + STEPPER (persistent) ══════════════ -->
   <header class="site-head">
     <div class="wrap head-row">
-      <div class="brand">RESUMELOOP</div>
+      <div class="brand">RESUMEFIT</div>
 
       <ol id="stepper" class="stepper" aria-label="Progress">
         <li data-step="1"><span class="step-num">01</span><span class="step-label">INPUT</span></li>
-        <li data-step="2"><span class="step-num">02</span><span class="step-label">PROCESS</span></li>
-        <li data-step="3"><span class="step-num">03</span><span class="step-label">RESULT</span></li>
+        <li data-step="2"><span class="step-num">02</span><span class="step-label">RESULT</span></li>
       </ol>
     </div>
   </header>
@@ -64,21 +65,21 @@
     <!-- ════════════════════════════════════════════════════════════
        PAGE 1 — INPUT
        ════════════════════════════════════════════════════════════ -->
-    <section id="page-upload" aria-labelledby="heroTitle">
+    <section id="page-input" aria-labelledby="heroTitle">
 
       <div class="hero">
         <div class="hero-geo" aria-hidden="true">
           <div class="geo-circle"></div>
           <div class="geo-quarter"></div>
         </div>
-        <h1 id="heroTitle" class="hero-title">RESUME<br />LOOP</h1>
-        <p class="hero-lead">An agent loop rewrites your resume against a job description.<br />
-          Every pass is checked. Every decision is visible.</p>
+        <h1 id="heroTitle" class="hero-title">RESUME<br />FIT</h1>
+        <p class="hero-lead">Your resume, rewritten against the job you actually want.<br />
+          ATS-safe formatting, professional bullet writing, and an honest score.</p>
       </div>
 
       <div class="sec">
         <span class="sec-num">01</span>
-        <h2 class="sec-title">INPUT</h2>
+        <h2 class="sec-title">YOUR RESUME &amp; THE JOB</h2>
       </div>
 
       <div class="grid-2">
@@ -112,37 +113,42 @@
         </div>
       </div>
 
-      <!-- loop settings — the teaching levers, kept visible -->
       <div class="sec">
         <span class="sec-num">02</span>
-        <h2 class="sec-title">PARAMETERS</h2>
+        <h2 class="sec-title">MODEL</h2>
       </div>
 
       <div class="grid-2 params-grid">
         <div class="param">
-          <div id="maxVal" class="param-num">5</div>
-          <label for="maxIterations" class="param-label">MAX LAPS</label>
-          <input type="range" id="maxIterations" class="range range-yellow" min="1" max="8" step="1" value="5" />
-          <p class="cap">How many times the loop may go around. It stops early when all 9 rules pass.</p>
-        </div>
-
-        <div class="param">
           <label for="apiKey" class="param-label">API KEY</label>
-          <input type="password" id="apiKey" placeholder="AIza… / sk-or-…" autocomplete="off" class="field" />
-          <p class="cap">Stored in this browser only. Sent straight to the provider.
-            Keys: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
-            · <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a></p>
+          <input type="password" id="apiKey" placeholder="sk-or-…" autocomplete="off" class="field" />
+          <p class="cap">OpenRouter key — stored in this browser only, sent straight to OpenRouter.
+            Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a></p>
         </div>
 
         <div class="param">
           <label for="modelSel" class="param-label">MODEL</label>
           <select id="modelSel" class="field select">
-            <option value="openrouter:openai/gpt-4o-mini" selected>Claude 3.5 Sonnet</option>
-            <option value="openrouter:openai/gpt-4o-mini">Claude 3.5 Haiku</option>
-            <option value="openrouter:openai/gpt-4o-mini">Claude 3 Opus</option>
-            <option value="openrouter:openai/gpt-4o-mini">Claude 3.7 Sonnet</option>
+            <optgroup label="Recommended">
+              <option value="openrouter:anthropic/claude-sonnet-5" selected>Claude Sonnet 5 — best writing</option>
+              <option value="openrouter:anthropic/claude-haiku-4.5">Claude Haiku 4.5 — fast and cheap</option>
+            </optgroup>
+            <optgroup label="Anthropic">
+              <option value="openrouter:anthropic/claude-opus-5">Claude Opus 5 — highest quality</option>
+              <option value="openrouter:anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
+            </optgroup>
+            <optgroup label="Other providers">
+              <option value="openrouter:openai/gpt-5.6-terra">GPT-5.6 Terra</option>
+              <option value="openrouter:openai/gpt-5.4-mini">GPT-5.4 Mini — cheapest</option>
+              <option value="openrouter:google/gemini-3.5-flash">Gemini 3.5 Flash</option>
+            </optgroup>
+            <optgroup label="Advanced">
+              <option value="openrouter:custom">Custom model slug…</option>
+            </optgroup>
           </select>
-          <input type="text" id="customModel" placeholder="e.g. anthropic/claude-3.5-sonnet" class="field hidden" />
+          <input type="text" id="customModel" placeholder="e.g. anthropic/claude-sonnet-5" class="field hidden" />
+          <p class="cap">All models run through <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> — one key covers every option.
+            Two calls per run: one to read the posting, one to write the resume.</p>
         </div>
       </div>
 
@@ -150,88 +156,80 @@
 
       <!-- sticky launch bar — the primary action is always reachable -->
       <div class="actionbar">
-        <button id="tailorBtn" class="pill" disabled>ADD: RESUME + JOB DESCRIPTION + API KEY</button>
+        <button id="buildBtn" class="pill" disabled>ADD: RESUME + JOB DESCRIPTION + API KEY</button>
+        <div id="progress" class="progress hidden" aria-live="polite">
+          <span class="prog-sq" aria-hidden="true"></span>
+          <span id="progressText" class="prog-txt"></span>
+        </div>
         <p id="gateHint" class="sr-only" aria-live="polite"></p>
       </div>
     </section>
 
     <!-- ════════════════════════════════════════════════════════════
-       PAGE 2 — PROCESS (the loop as a disc)
+       PAGE 2 — RESULT
        ════════════════════════════════════════════════════════════ -->
-    <section id="page-process" class="hidden" aria-labelledby="processTitle">
-
-      <div class="sec sec-row">
-        <span class="sec-num">03</span>
-        <h2 id="processTitle" class="sec-title">PROCESS</h2>
-        <button id="stopBtn" class="btn-box">HALT</button>
-      </div>
-
-      <!-- the loop circle + status + ticker + score — built by theater.js,
-           driven by real events only -->
-      <div id="theater" aria-live="polite"></div>
-
-      <div id="processActions" class="hidden actions-row">
-        <button id="toDownload" class="pill pill-fit">VIEW RESULT</button>
-        <button id="backToUpload" class="hidden btn-line">BACK TO INPUT</button>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════════════════════════
-       PAGE 3 — RESULT
-       ════════════════════════════════════════════════════════════ -->
-    <section id="page-download" class="hidden" aria-labelledby="downloadTitle">
+    <section id="page-result" class="hidden" aria-labelledby="resultTitle">
 
       <div class="sec">
-        <span class="sec-num">04</span>
-        <h2 id="downloadTitle" class="sec-title">RESULT</h2>
+        <span class="sec-num">03</span>
+        <h2 id="resultTitle" class="sec-title">RESULT</h2>
       </div>
 
       <div class="result-top">
         <div>
+          <div class="score-label">ATS SCORE</div>
           <div class="score-row">
             <span id="finalScore" class="num-120">—</span>
-            <span id="finalDelta" class="delta-mono"></span>
+            <span class="score-of">/100</span>
           </div>
-          <div id="journeyLine" class="mono-line"></div>
-          <div id="stopNote" class="cap"></div>
+          <div id="scoreCaption" class="mono-line"></div>
+          <div id="roleLine" class="cap"></div>
         </div>
 
         <div class="result-actions">
           <button id="dlPdf" class="pill pill-fit">DOWNLOAD PDF</button>
           <button id="dlTxt" class="btn-line">DOWNLOAD TXT</button>
+          <button id="copyBtn" class="btn-line">COPY TEXT</button>
           <button id="startOver" class="btn-line">START OVER</button>
         </div>
       </div>
 
-      <div class="sec-sub">BEFORE / AFTER</div>
+      <!-- the resume — editable, because the last word is yours -->
+      <div class="sec-sub">YOUR TAILORED RESUME — EDIT ANYTHING BEFORE YOU EXPORT</div>
       <div class="compare">
+        <div class="pane pane-after">
+          <div class="pane-label">TAILORED <span class="pane-hint">EDITABLE</span></div>
+          <textarea id="resumeOut" class="resume-out" spellcheck="false" aria-label="Tailored resume, editable"></textarea>
+        </div>
         <div class="pane">
-          <div class="pane-label">ORIGINAL</div>
+          <div class="pane-label">YOUR ORIGINAL</div>
           <div id="beforePane" class="pane-body"></div>
         </div>
-        <div class="pane pane-after">
-          <div class="pane-label">TAILORED</div>
-          <div id="afterPane" class="pane-body"></div>
-        </div>
+      </div>
+
+      <div id="breakdownWrap">
+        <div class="sec-sub">HOW THE SCORE BREAKS DOWN</div>
+        <div id="breakdown" class="bd-grid"></div>
+      </div>
+
+      <div id="keywordsWrap">
+        <div class="sec-sub">KEYWORD COVERAGE</div>
+        <div id="keywords" class="kw-cloud"></div>
+        <p id="kwLegend" class="cap"></p>
       </div>
 
       <div class="dl-grid">
-        <div>
-          <div class="sec-sub">FINAL CHECKS</div>
-          <div id="dlChecklist"></div>
+        <div id="changesWrap">
+          <div class="sec-sub">WHAT CHANGED</div>
+          <ol id="changes" class="changelog"></ol>
         </div>
 
         <div id="gapsWrap">
-          <div class="sec-sub">GAPS — NOT FIXED</div>
-          <p class="cap">These were not written into the resume — that would be fabrication.
-            Close them for real, then re-run.</p>
-          <div id="dlGaps"></div>
+          <div class="sec-sub">GAPS — NOT WRITTEN IN</div>
+          <p class="cap">These were left out on purpose — writing them in would be fabrication,
+            and it is the fastest way to fail a screening interview. Close them for real, then re-run.</p>
+          <div id="gaps"></div>
         </div>
-      </div>
-
-      <div id="clWrap">
-        <div class="sec-sub">CHANGE LOG</div>
-        <ol id="dlChangelog" class="changelog"></ol>
       </div>
     </section>
   </main>
@@ -244,7 +242,7 @@
     }
   </script>
 
-  <script type="module" src="js/main.js?v=15"></script>
+  <script type="module" src="js/main.js?v=20"></script>
 </body>
 
 </html>

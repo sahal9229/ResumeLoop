@@ -1,25 +1,18 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   main.js — entry point and page state machine.
+   main.js — entry point and page wiring.
 
-     Input (1)  →  Process (2)  →  Result (3)
-                      ↑ back-nav is disabled while the loop runs;
-                        "Start Over" resets to page 1.
+     Input (1)  →  Result (2)
 
-   This file owns the wiring: it reads settings, starts the engine,
-   pipes the engine's events into both views via dualEmit, and hands
-   the final result to the Result page.
-
-   The disc and the check grid subscribe to the same real event stream.
-   There is no second code path that could diverge from the real events.
+   Reads the form, runs the two-stage build, hands the result to the
+   Result page. Everything else lives in its own module.
    ═══════════════════════════════════════════════════════════════════════ */
 
-import { $, el, esc, show } from './dom.js?v=4';
-import { fileToText } from './parser.js?v=4';
-import { runLoop } from './loop.js?v=8';
-import { readSettings, validate, inputsComplete, restoreSettings } from './settings.js?v=5';
-import { createTheaterView } from './theater.js?v=12';
-import { renderResults } from './results.js?v=8';
-import { downloadPDF, downloadTXT } from './resume.js?v=5';
+import { $, esc, show } from './dom.js?v=6';
+import { fileToText } from './parser.js?v=6';
+import { buildResume } from './build.js?v=6';
+import { readSettings, validate, restoreSettings } from './settings.js?v=6';
+import { renderResults, autosize } from './results.js?v=6';
+import { downloadPDF, downloadTXT } from './resume.js?v=6';
 
 const app = {
   page: 1,
@@ -28,31 +21,14 @@ const app = {
   controller: null
 };
 
-const theater = createTheaterView();
+/* ── page transitions + stepper ─────────────────────────────────────── */
 
-/* ── emit: pipes every loop event into the view ── */
-function dualEmit(ev) {
-  theater.handle(ev);
-  if (ev.type === 'stop') $('stopBtn').disabled = true;
-}
-
-/* ── page transitions + stepper (clickable — free back-and-forth) ──── */
-
-/* which pages are reachable right now: INPUT always; PROCESS once a run
-   has started; RESULT once a usable result exists */
-function canGo(n) {
-  if (n === 1) return true;
-  if (n === 2) return app.running || app.result !== null;
-  if (n === 3) return app.result !== null
-    && !(app.result.stopCode === 'error' && !app.result.baselineScored);
-  return false;
-}
+const canGo = n => n === 1 || app.result !== null;
 
 function go(page) {
   app.page = page;
-  show($('page-upload'),   page === 1);
-  show($('page-process'),  page === 2);
-  show($('page-download'), page === 3);
+  show($('page-input'),  page === 1);
+  show($('page-result'), page === 2);
   refreshStepper();
   window.scrollTo({ top: 0 });
 }
@@ -74,7 +50,6 @@ document.querySelectorAll('#stepper li[data-step]').forEach(li => {
   const nav = () => {
     const n = Number(li.dataset.step);
     if (!canGo(n) || n === app.page) return;
-    if (n === 3) renderResults(app.result);
     go(n);
   };
   li.addEventListener('click', nav);
@@ -86,11 +61,10 @@ document.querySelectorAll('#stepper li[data-step]').forEach(li => {
 /* ── the CTA gate on page 1 ─────────────────────────────────────────── */
 
 function refreshGate() {
-  const btn = $('tailorBtn');
+  const btn = $('buildBtn');
   if (app.running) {
     btn.disabled = true;
-    btn.textContent = 'LOOP RUNNING — SEE 02 PROCESS';
-    $('gateHint').textContent = 'A loop is already running.';
+    btn.textContent = 'WORKING…';
     return;
   }
 
@@ -101,17 +75,24 @@ function refreshGate() {
 
   const ready = missing.length === 0;
   btn.disabled = !ready;
-  btn.textContent = ready ? 'TAILOR MY RESUME' : 'ADD: ' + missing.join(' + ');
+  btn.textContent = ready ? 'BUILD MY RESUME' : 'ADD: ' + missing.join(' + ');
   $('gateHint').textContent = ready
-    ? 'Ready. The loop runs live on the next page.'
+    ? 'Ready to build.'
     : 'Still needed: ' + missing.join(', ').toLowerCase();
 }
 
 ['resume', 'jd', 'apiKey'].forEach(id => $(id).addEventListener('input', refreshGate));
 
-/* ── Tailor: start the loop ─────────────────────────────────────────── */
+/* ── progress line under the button ─────────────────────────────────── */
 
-$('tailorBtn').addEventListener('click', async () => {
+function setProgress(text) {
+  show($('progress'), Boolean(text));
+  $('progressText').textContent = text || '';
+}
+
+/* ── Build ──────────────────────────────────────────────────────────── */
+
+$('buildBtn').addEventListener('click', async () => {
   show($('err'), false);
 
   let settings;
@@ -125,68 +106,69 @@ $('tailorBtn').addEventListener('click', async () => {
   }
 
   app.running = true;
-  app.result = null;
   app.controller = new AbortController();
-
-  theater.reset(settings);
-
-  show($('processActions'), false);
-  show($('backToUpload'), false);
-  $('stopBtn').disabled = false;
   refreshGate();
-  go(2);
+  setProgress('Starting…');
 
   try {
-    // dualEmit fans every real event to both views in the same order —
-    // the disc and the grid can never show anything the loop didn't do.
-    app.result = await runLoop(settings, dualEmit, app.controller.signal);
+    app.result = await buildResume(settings, ev => {
+      if (ev.type === 'stage:start') setProgress(ev.label + '…');
+      if (ev.type === 'note')        setProgress(ev.text);
+      if (ev.type === 'stage:done' && ev.stage === 'analyze') {
+        setProgress(ev.data.role
+          ? `Read the posting — ${ev.data.role}. Writing your resume…`
+          : 'Posting read. Writing your resume…');
+      }
+    }, app.controller.signal);
+
+    setProgress('');
+    renderResults(app.result);
+    go(2);
+  } catch (e) {
+    setProgress('');
+    $('err').textContent = e?.name === 'AbortError'
+      ? 'Cancelled.'
+      : 'ERROR — ' + e.message;
+    show($('err'));
   } finally {
     app.running = false;
     app.controller = null;
-    theater.finish();
     refreshGate();
     refreshStepper();
   }
-
-  // Reveal the way forward. If the loop died before even a baseline
-  // score existed (bad API key, network down), viewing results would
-  // show nothing useful — send the user back to fix the setup instead.
-  const useless = app.result.stopCode === 'error' && !app.result.baselineScored;
-  const approved = app.result.stopCode === 'perfect' || app.result.stopCode === 'target';
-  $('toDownload').textContent = approved ? 'GIVE FINAL OK — VIEW RESULT' : 'VIEW RESULT';
-  show($('processActions'));
-  show($('toDownload'), !useless);
-  show($('backToUpload'), useless);
 });
-
-$('stopBtn').addEventListener('click', () => {
-  app.controller?.abort();
-  $('stopBtn').disabled = true;
-});
-
-$('toDownload').addEventListener('click', () => {
-  theater.humanApproved();      // the diagram's last gate: a real human click
-  renderResults(app.result);
-  go(3);
-});
-
-$('backToUpload').addEventListener('click', () => go(1));
 
 /* ── Result page actions ────────────────────────────────────────────── */
 
+/* Always export what is on screen — the user may have edited it. */
+const currentText = () => $('resumeOut').value;
+
 $('dlPdf').addEventListener('click', () => {
   try {
-    downloadPDF(app.result.finalResume);
+    downloadPDF(currentText());
   } catch (e) {
     alert(e.message);
   }
 });
 
-$('dlTxt').addEventListener('click', () => downloadTXT(app.result.finalResume));
+$('dlTxt').addEventListener('click', () => downloadTXT(currentText()));
+
+$('copyBtn').addEventListener('click', async () => {
+  const btn = $('copyBtn');
+  try {
+    await navigator.clipboard.writeText(currentText());
+    btn.textContent = 'COPIED';
+  } catch {
+    btn.textContent = 'COPY FAILED';
+  }
+  setTimeout(() => { btn.textContent = 'COPY TEXT'; }, 1600);
+});
+
+$('resumeOut').addEventListener('input', e => autosize(e.target));
 
 $('startOver').addEventListener('click', () => {
   app.result = null;
-  refreshGate();          // inputs are kept — handy for re-runs in class
+  refreshGate();          // inputs are kept — handy for trying another posting
   go(1);
 });
 
@@ -261,15 +243,11 @@ $('jdFile').addEventListener('change', async e => {
 
 /* ── boot ───────────────────────────────────────────────────────────── */
 
-/* slider shows its value live — the numeral is part of the composition */
-$('maxIterations').addEventListener('input', () => { $('maxVal').textContent = $('maxIterations').value; });
-
-/* "OpenRouter · custom model…" reveals the free-text slug field */
+/* "custom model…" reveals the free-text slug field */
 const syncCustomModel = () => show($('customModel'), $('modelSel').value === 'openrouter:custom');
 $('modelSel').addEventListener('change', syncCustomModel);
 
 restoreSettings();
 syncCustomModel();
-$('maxVal').textContent = $('maxIterations').value;
 refreshGate();
 go(1);

@@ -1,11 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════════
    llm.js — THE MODEL CALL.
 
-   This is the only file in the project that knows a language model exists.
-   The loop in loop.js is plain JavaScript wrapped around callLLM().
+   Every model runs through OpenRouter: one API key, one endpoint, any
+   model slug. This is the only file that knows a language model exists —
+   build.js is plain JavaScript wrapped around askJSON().
 
-   Two layers of resilience live here, because a class demo on a free API
-   tier must not crash:
+   Two layers of resilience live here, because a rate limit must not drop
+   someone's resume on the floor:
      · retry with exponential backoff on 429 / 5xx / network blips
      · a JSON re-ask when the model wraps its reply in prose
    ═══════════════════════════════════════════════════════════════════════ */
@@ -23,7 +24,7 @@ class HttpError extends Error {
 
 /**
  * One request, one completion, as raw text — with backoff retries.
- * @param {{provider:string, model:string, apiKey:string}} cfg
+ * @param {{model:string, apiKey:string}} cfg  model = an OpenRouter slug
  * @param {string} systemPrompt
  * @param {string} userPrompt
  * @param {AbortSignal} [signal]
@@ -69,15 +70,13 @@ function delay(ms, signal) {
 }
 
 async function singleCall(cfg, systemPrompt, userPrompt, signal, hooks = {}, attempt = 0) {
-  const { provider, model, apiKey } = cfg;
-  if (!apiKey) throw new Error('No API key. Add one on the Upload page.');
+  const { model, apiKey } = cfg;
+  if (!apiKey) throw new Error('No API key. Add one on the input page.');
 
-  const req = provider === 'gemini'
-    ? geminiRequest(model, apiKey, systemPrompt, userPrompt)
-    : openRouterRequest(model, apiKey, systemPrompt, userPrompt);
+  const req = openRouterRequest(model, apiKey, systemPrompt, userPrompt);
 
   const body = JSON.stringify(req.body);
-  hooks.api?.({ kind: 'request', provider, model, attempt, bytes: body.length });
+  hooks.api?.({ kind: 'request', model, attempt, bytes: body.length });
   const t0 = performance.now();
 
   const res = await fetch(req.url, {
@@ -90,67 +89,67 @@ async function singleCall(cfg, systemPrompt, userPrompt, signal, hooks = {}, att
   const ms = Math.round(performance.now() - t0);
   hooks.api?.({ kind: 'response', status: res.status, ok: res.ok, ms, bytes: raw.length });
 
-  // Bad-key shapes differ per provider: OpenRouter says 401/403,
-  // Gemini says 400 with API_KEY_INVALID in the body.
-  const badKey = res.status === 401 || res.status === 403 ||
-    (res.status === 400 && /API_KEY_INVALID|API key not valid/i.test(raw));
-  if (badKey)
+  if (res.status === 401 || res.status === 403)
     throw new HttpError(res.status,
-      `${provider} rejected your API key (HTTP ${res.status}). Check that the key is valid and matches the chosen model provider — Gemini keys start with "AIza", OpenRouter keys with "sk-or-".`);
+      `OpenRouter rejected your API key (HTTP ${res.status}). Check the key is valid and still active at openrouter.ai/keys. OpenRouter keys start with "sk-or-".`);
 
-  if (!res.ok) throw new HttpError(res.status, `${provider} HTTP ${res.status} — ${raw.slice(0, 300)}`);
+  // 402 is its own thing: the key works, the account is out of credit.
+  if (res.status === 402)
+    throw new HttpError(res.status,
+      'OpenRouter says this key is out of credit. Top up at openrouter.ai/credits, or pick a cheaper model.');
+
+  // A model slug that does not exist comes back 400/404 with a body that
+  // names it — surface that instead of a bare status code.
+  if ((res.status === 400 || res.status === 404) && /model/i.test(raw))
+    throw new HttpError(res.status,
+      `OpenRouter did not accept the model "${model}". Check the slug at openrouter.ai/models. Details: ${raw.slice(0, 200)}`);
+
+  if (!res.ok) throw new HttpError(res.status, `OpenRouter HTTP ${res.status} — ${raw.slice(0, 300)}`);
 
   let data;
   try { data = JSON.parse(raw); }
-  catch { throw new Error('Provider returned a non-JSON envelope: ' + raw.slice(0, 300)); }
+  catch { throw new Error('OpenRouter returned a non-JSON envelope: ' + raw.slice(0, 300)); }
+
+  // OpenRouter reports upstream provider failures in a 200 body.
+  if (data.error)
+    throw new Error('OpenRouter error: ' + (data.error.message || JSON.stringify(data.error)).slice(0, 300));
 
   const text = req.pick(data);
-  if (!text) throw new Error('Empty completion. Full response: ' + raw.slice(0, 400));
+  if (!text) {
+    const reason = data.choices?.[0]?.finish_reason;
+    if (reason === 'length')
+      throw new Error('The model hit its output limit before finishing. Try a shorter resume or job description, or pick a model with a larger output budget.');
+    throw new Error('Empty completion. Full response: ' + raw.slice(0, 400));
+  }
   return text;
 }
 
-/* ── Google Gemini ──────────────────────────────────────────────────── */
-function geminiRequest(model, apiKey, systemPrompt, userPrompt) {
-  // Gemini 2.5+ spends "thinking" tokens out of the same output budget as
-  // the answer, so a full revised resume needs real headroom. 2.0-era
-  // models cap at 8192 and reject anything larger.
-  const roomy = /2\.5|[3-9]\./.test(model);
+/* ── OpenRouter — the only transport. One key, every model. ─────────── */
 
-  return {
-    url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    headers: { 'Content-Type': 'application/json' },
-    body: {
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        // 0 = repeatable verdicts. The checker's 9 pass/fail judgments must
-        // not flip lap to lap on sampling noise — that reads as a broken loop.
-        temperature: 0,
-        responseMimeType: 'application/json',
-        maxOutputTokens: roomy ? 32768 : 8192
-      }
-    },
-    pick: d => {
-      const cand = d.candidates?.[0];
-      const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
-      if (!text && cand?.finishReason === 'MAX_TOKENS')
-        throw new Error('Model hit its output limit before answering. Try a shorter resume/JD, or a model with a bigger output budget.');
-      if (!text && cand?.finishReason && cand.finishReason !== 'STOP')
-        throw new Error('Model stopped early (finishReason: ' + cand.finishReason + ').');
-      return text;
-    }
-  };
-}
+/** Which routes accept response_format: json_object. */
+const supportsJsonMode = model => /^(openai|mistralai|deepseek|qwen)\//i.test(model);
 
-/* ── OpenRouter (and anything else OpenAI-compatible) ───────────────── */
 function openRouterRequest(model, apiKey, systemPrompt, userPrompt) {
   return {
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      // OpenRouter attributes usage to the calling app via these two.
+      'HTTP-Referer': location.origin,
+      'X-Title': 'ResumeFit'
+    },
     body: {
       model,
-      temperature: 0,
-      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      // A full resume plus its report is a long reply; the default cap on
+      // some routes truncates it mid-JSON, which reads as a parse failure.
+      max_tokens: 8000,
+      // Only OpenAI-family routes honour json_object. Sending it to a model
+      // that does not support it is a 400 on some providers, so ask for it
+      // only where it works — every prompt already demands JSON in words,
+      // and askJSON() re-asks if a reply comes back wrapped in prose.
+      ...(supportsJsonMode(model) ? { response_format: { type: 'json_object' } } : {}),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userPrompt }
@@ -161,8 +160,8 @@ function openRouterRequest(model, apiKey, systemPrompt, userPrompt) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   JSON layer — every stage of the loop returns structured data, so the
-   Process page can render fields instead of parsing prose.
+   JSON layer — both stages return structured data, so the Result page
+   renders fields instead of parsing prose.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /**

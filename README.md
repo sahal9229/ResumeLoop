@@ -1,210 +1,160 @@
-# ResumeLoop
+# ResumeFit
 
-**Live app → [https://resume-loop.vercel.app](https://resume-loop.vercel.app/)**
+An ATS resume builder. Paste your resume and a job posting; get back a rewritten,
+ATS-safe resume, an honest score, and a straight answer about what you are missing.
 
-An ATS resume tailor whose real subject is **loop engineering**. The tailoring never happens
-in one hidden call — it runs as a visible agent loop, drawn as a literal circle on screen.
-Every model call, every rule check, every "not good enough, go around again" is rendered
-live, the moment it actually happens.
-
-The resume is the by-product. **The loop is the product.**
+No account, no backend, no build step. Everything runs in your browser, and your
+resume is never uploaded anywhere — it goes to the model provider you choose and
+nowhere else.
 
 ---
 
-## The loop, in plain words
+## How it works
 
-Upload a resume, paste a job description, set how many laps the loop may run — then watch
-the flow travel clockwise around a circle:
+Two model calls. That is the whole pipeline.
 
 ```
-                     01 START
-              your resume + the job post
-                        │
-                        ▼
-        ┌────────► 02 SAFETY CHECK ─────────┐
-        │          laps · calls · time      │
-        │                                   ▼
-   FAILED — GO                          03 PLAN
-   AROUND AGAIN                    pick what to fix
-        │                                   │
-        ▼                                   ▼
-     06 PASS? ◄──── 05 CHECK ◄──── 04 REWRITE
-   all 9 rules      a second AI      AI rewrites
-       ok?           · 9 rules       the resume
-        │
-        │ all rules pass
-        ▼
-     07 YOUR OK  —  you approve the result
-        │
-        ▼
-     08 DONE
+   YOUR RESUME  +  JOB POSTING
+              │
+              ▼
+   ┌──────────────────────┐
+   │  1. ANALYZE          │   read the posting: role, must-haves,
+   │     the job posting  │   nice-to-haves, the exact ATS keywords
+   └──────────┬───────────┘
+              ▼
+   ┌──────────────────────┐
+   │  2. WRITE            │   rewrite the resume against those
+   │     the resume       │   requirements, then grade the result
+   └──────────┬───────────┘
+              ▼
+   TAILORED RESUME  ·  ATS SCORE  ·  KEYWORD COVERAGE  ·  GAPS
 ```
 
-| Stage | What actually happens |
+**Stage 1 — analyze.** The posting is reduced to structure: the role and seniority,
+hard requirements versus preferences, and the literal keywords an ATS scans for,
+spelled exactly as the posting spells them (`Node.js`, not `NodeJS`).
+
+**Stage 2 — write.** A single call rewrites the resume against that structure and
+grades its own output across six weighted areas. The score you see is the sum of
+the visible breakdown, recomputed in code — if the model claims 95 while its own
+breakdown adds to 79, you get 79.
+
+---
+
+## What makes the output good
+
+The prompt encodes how professional resume writers actually work, not "make this
+better":
+
+- **Bullet formula** — every bullet is `strong verb + what you owned + the technology
+  + the result or scope`. Bullets that open with *Responsible for*, *Worked on*, or
+  *Helped with* are rewritten, and no two bullets in a role start with the same verb.
+- **Evidence over adjectives** — *passionate*, *detail-oriented*, *team player* are cut
+  and replaced with the fact that would make a reader conclude it.
+- **Real numbers only** — every figure already in your resume is surfaced and moved to
+  the end of its bullet where the eye lands. No number is ever invented.
+- **Keywords inside sentences** — a must-have you genuinely have appears in a real
+  sentence about real work, never as a keyword list stuffed at the bottom.
+- **Structure recruiters expect** — a 2–3 line summary that names the role, skills
+  grouped by category, standard uppercase headings, consistent tense per role.
+
+### Honesty is enforced, not encouraged
+
+The model may reframe, reorder, sharpen and quantify what is already in your resume.
+It may not add an employer, title, date, degree, certification, tool, or metric that
+is not there.
+
+Anything the job requires and your resume cannot support is not written in — it goes
+to the **gaps** section with a concrete way to close it for real. This is the useful
+behaviour: a keyword you cannot back up gets you past the filter and then fails you
+in the first screening call.
+
+---
+
+## What you get back
+
+| | |
 |---|---|
-| **START** | Your resume and the job post are read and parsed (client-side, then one extraction call each). |
-| **SAFETY CHECK** | Plain code, no model: laps used, API calls made, seconds elapsed. Visible on every cycle. |
-| **PLAN** | The failed rules from the last check become this lap's complete to-do list. |
-| **REWRITE** | One model call rewrites only what the failed rules name. The draft is saved to memory. |
-| **CHECK** | A *different* model call — a checker that never talks to the writer — grades the draft against 9 fixed rules and compares it line-by-line with the original for honesty. |
-| **PASS?** | Deterministic JavaScript, no model: all rules pass → exit. Otherwise the failures go around the circle again as the next lap's to-do list — the red arc lights up. |
-| **YOUR OK** | Human in the loop: the run stops, and a real click from you is the final gate. |
-| **DONE** | The result page: before/after diff, final rules scorecard, honest gap report, PDF export. |
+| **Tailored resume** | Editable in the browser before you export. Your edits are what gets exported. |
+| **ATS score** | Out of 100, with all six weighted areas shown and a note on each. |
+| **Keyword coverage** | Every must-have and ATS keyword, marked covered or missing. Must-haves flagged. |
+| **What changed** | The substantive edits, each with the requirement or rule it serves. |
+| **Gaps** | What was deliberately left out, why, and how to actually close it. |
 
-Nothing on screen is simulated. There are no timer-driven animations and no scripted
-progress — every visual state change is triggered by a real event emitted by the engine at
-the moment it happened. The only continuous motion is a 1-second pulse that means "still
-waiting on the model", never fake progress.
+Export as **PDF** or **TXT**. The PDF is deliberately conservative — one column, real
+selectable text, standard headings, no tables, columns, graphics, or text boxes. It is
+verified to extract in correct reading order, which is exactly what an ATS does to it.
 
-## The live ticker
+---
 
-A **NOW** feed narrates every real step as it fires, newest on top:
+## Running it
 
-```
-■ MEMORY   Draft scored 38 < best 83 — kept the best draft
-■ PASS?    Not done — 2 failures go around again as lap 3's to-do list
-■ CHECK    Result: score 83 — 2 of 9 failing
-□ CHECK    Calling the API
-■ REWRITE  New draft ready — 4 changes saved to memory
-■ REWRITE  Error captured — retrying in 2s (attempt 1/3)
-■ SAFETY   Lap 2/5 · 8 calls · 34s — ok to continue
-```
-
-That includes the two retry loops that make agent loops robust in the real world, shown
-honestly whenever they actually occur:
-
-- **Crashed call** → error captured → exponential backoff → retry (429s on free tiers make
-  this a live demo, not a slide).
-- **Malformed JSON** → the parse error is sent back to the model with instructions to fix it.
-
-## Score stability — keep the best
-
-The engine is a hill-climber with memory:
-
-- All calls run at **temperature 0**, so the checker's nine pass/fail verdicts don't flip on
-  sampling noise between laps.
-- Every verified draft is compared against the **best draft so far**. A rewrite that scores
-  worse is discarded — the next lap rebuilds from the best draft, and the final answer is
-  always the best-scoring draft, never merely the last one. Reverts are announced in the
-  ticker (`MEMORY: kept the best draft`).
-
-## The 9 fixed rules
-
-Every check must return a verdict on all nine. The score is computed deterministically from
-their weights — the model never invents a number:
-
-| ID | Rule | Weight |
-|---|---|---|
-| `KW-MUSTHAVE` | Every must-have JD keyword present, woven into real sentences | 25 |
-| `BULLET-IMPACT` | Every bullet: strong action verb + method/tool + concrete result | 20 |
-| `KW-NICE` | Nice-to-have keywords included where truthfully supported | 10 |
-| `NO-FILLER` | Zero "responsible for", "worked on", passive voice, vague filler | 10 |
-| `SUMMARY` | 2–3 line summary naming the target role and strongest matching qualifications | 10 |
-| `RELEVANCE` | Every bullet and section serves this specific job | 8 |
-| `HONESTY` | Line-by-line comparison against the original — nothing fabricated, ever | 7 |
-| `TENSE` | Past roles in past tense, current role in present tense — consistently | 5 |
-| `ATS-FORMAT` | Plain text, standard uppercase headings, single column, parser-safe | 5 |
-
-**Stop conditions** (all in plain code): all 9 rules pass (`perfect`) · out of laps (`max`) ·
-two consecutive drafts fail the identical rule set (`plateau` — the AI is stuck, a human
-should look).
-
-## Honesty guardrails
-
-- The `HONESTY` rule compares every draft against the **original unedited resume**; a single
-  fabricated employer, metric, tool, or title fails the lap.
-- When a fix is impossible without lying (a must-have skill the candidate simply lacks), it
-  lands in the **GAPS — NOT FIXED** report on the result page, with an honest note on how to
-  close it in real life. Never in the resume.
-- This puts a truthfulness ceiling on the score by design: a resume genuinely missing
-  must-haves cannot reach 100, and the app says so instead of lying.
-
-## Event vocabulary
-
-The engine (`js/loop.js`) emits a typed event stream; the UI is a pure subscriber and can
-never show anything the loop didn't do:
-
-```
-setup:start / setup:done      reading the job post and resume
-guard:check                   the safety ledger: lap, calls, elapsed, within budget
-iter:start                    a lap begins, with its failed-rule to-do list
-do:start / do:done            the rewrite call
-verify:start / verify:done    the checker's 9-rule verdict + deterministic score
-decide:done                   loop or stop, with the reason
-revert                        this lap's draft scored worse — best draft kept
-iter:done · score · note      bookkeeping + human-readable notes
-api                           wire telemetry: request / response / retry / parse-fail
-stop                          the loop halted: perfect | max | plateau | aborted | error
-phase:start/done (polish)     one line-edit pass after the loop (no new facts)
-gaps:start / gaps:done        the honest gap report
-```
-
-## Run it locally
+ES modules will not load over `file://`, so the app needs a local server.
 
 ```bash
-git clone https://github.com/sahal9229/ResumeLoop
-cd ResumeLoop
+./serve.sh          # macOS / Linux
+serve.cmd           # Windows — or just double-click it
 ```
 
-Double-click **`serve.cmd`** (Windows) or run **`./serve.sh`** (macOS/Linux). It starts a tiny
-static server and opens `http://127.0.0.1:8777/`. No install, no build step — plain HTML +
-ES modules. (A server is required because browsers refuse to load ES modules from `file://`;
-opening `index.html` directly shows a banner explaining exactly this.)
+Then open <http://127.0.0.1:8777/>.
 
-Then add an API key on the Input page:
+You will need an **OpenRouter** key from [openrouter.ai/keys](https://openrouter.ai/keys)
+(it starts with `sk-or-`). It is stored in your browser's local storage and sent only
+to OpenRouter.
 
-- **Gemini (free tier):** [aistudio.google.com/apikey](https://aistudio.google.com/apikey) —
-  default model `gemini-2.5-flash` (prefer it over `-lite` for better rewrites)
-- **OpenRouter:** [openrouter.ai/keys](https://openrouter.ai/keys) — pick a preset or paste any
-  model slug from [openrouter.ai/models](https://openrouter.ai/models)
+### Models
 
-Everything is client-side: files are parsed in the browser, and the key is stored in
-`localStorage` and sent from your browser straight to the provider. Fine for a demo, not a
-pattern for production.
+Everything runs through OpenRouter, so one key covers every option — Anthropic, OpenAI
+and Google models all use the same endpoint and the same key.
 
-## Design
+| Model | Cost (in / out per 1M) | When to pick it |
+|---|---|---|
+| **Claude Sonnet 5** *(default)* | $2 / $10 | Best writing quality for the price |
+| Claude Haiku 4.5 | $1 / $5 | Fast and cheap; fine for a quick pass |
+| Claude Opus 5 | $5 / $25 | Highest quality, when the role really matters |
+| Claude Sonnet 4.5 | $3 / $15 | Previous-generation Sonnet |
+| GPT-5.6 Terra | $1.25 / $7.50 | Strong non-Anthropic alternative |
+| GPT-5.4 Mini | $0.75 / $4.50 | Cheapest option here |
+| Gemini 3.5 Flash | $1.50 / $9 | Long-context alternative |
 
-Bauhaus: paper background, ink structure, and three primaries assigned to meaning and never
-swapped — **blue = doing**, **yellow = checking / your attention**, **red = failure / go
-around again**, ink-filled = done. Geometry is squares and circles only, no shadows, no
-gradients; state changes are instant. Type is Jost (display) + IBM Plex Mono (machine
-values). The 120px number in the center of the circle is the lap counter.
+Pick **Custom model slug…** to use any other model from
+[openrouter.ai/models](https://openrouter.ai/models) — paste its slug
+(e.g. `deepseek/deepseek-chat`).
 
-## Project structure — one concern per file
+A run is two calls and a few thousand tokens, so even the expensive options cost
+cents per resume.
+
+---
+
+## Project layout
 
 ```
-index.html        the three pages + clickable 01/02/03 stepper (markup only)
-css/custom.css    the design system: palette, type scale, the ring, every component
-js/main.js        entry point, page state machine, event fan-out, navigation gates
-js/loop.js        THE LOOP ENGINE — guard, plan, rewrite, check, decide, keep-the-best;
-                  emits events, never touches the DOM
-js/prompts.js     the 9 rule definitions + rewrite/check/polish/gaps prompts + guardrails
-js/llm.js         the ONE place a model is called (temperature 0, 429 backoff, JSON re-ask)
-js/theater.js     the circular loop view + NOW ticker + red go-around arc (pure view)
-js/checklist.js   the 3×3 rules grid used on the result page
-js/results.js     result page: before/after diff, scorecard, gaps, change log
-js/resume.js      plain text → structure → pdfmake PDF (selectable text, ATS-safe)
-js/parser.js      PDF / DOCX / TXT → plain text, all client-side
-js/settings.js    form state, validation, localStorage
-js/dom.js         tiny DOM helpers
-serve.cmd/.sh     one-click local server
+index.html          two pages: input, result
+css/custom.css      the whole design system
+js/
+  main.js           entry point, page wiring, upload handling
+  build.js          the two-stage pipeline + response normalisers
+  prompts.js        both prompts — the resume-writing standard lives here
+  llm.js            the OpenRouter call: retries, backoff, JSON re-ask
+  results.js        the result page (pure view)
+  resume.js         resume text → structure → PDF
+  parser.js         PDF / DOCX / TXT → plain text, in-browser
+  settings.js       form snapshot + local storage
+  dom.js            small shared helpers
 ```
 
-## What to point at in class
+`build.js` never trusts the model's output shape. Missing keywords are re-added as
+uncovered rather than silently dropped, the score is recomputed from the breakdown,
+legacy field names are accepted, and smart quotes, em dashes, and fancy bullet glyphs
+are stripped from the resume text before it reaches the page.
 
-| Teaching beat | Where |
-|---|---|
-| The single model call — only file that knows an LLM exists | `js/llm.js` · `callLLM()` |
-| Retry with backoff — the crashed-tool path, live in the ticker | `js/llm.js` retry loop |
-| JSON self-repair — sending the model its own error to fix | `js/llm.js` · `askJSON()` |
-| The loop itself — a plain `while (true)` | `js/loop.js` · `runLoop()` |
-| The safety guard — budget checked every cycle, no model | `guard:check` in `js/loop.js` |
-| Keep-the-best memory — discard regressions, ship the best draft | the `revert` block in `js/loop.js` |
-| Writer/checker separation — no grading your own homework | `js/prompts.js` · `verifyPrompt` vs `doPrompt` |
-| Deterministic PASS? — the step with no model in it | the decide block in `js/loop.js` |
-| The honesty guardrail wording | `js/prompts.js` · `HONESTY` |
-| Human in the loop — the final OK is a real click | `YOUR OK` on the Process page |
+---
 
-## License
+## Notes
 
-MIT — use it, modify it, teach with it.
+- Your resume and the job posting are sent to OpenRouter, which forwards them to the
+  model you picked. Nothing is stored on any server belonging to this app, because
+  there isn't one.
+- PDF and DOCX parsing happen locally via pdf.js and mammoth.js.
+- The score is a useful signal, not a guarantee. Real ATS implementations differ, and
+  a human still reads the resume at the end.

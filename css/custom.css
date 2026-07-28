@@ -1,16 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════
-   ResumeLoop — BAUHAUS identity.
+   ResumeFit — BAUHAUS identity.
 
    Five colors. Paper page, ink structure, three primaries assigned
    to meaning and never swapped:
-     BLUE   = doing (the worker runs)
-     YELLOW = checking (the verifier runs)
-     RED    = decision / failure / stop
-     INK filled = passed / complete
+     BLUE   = the action (build, must-have covered, editing)
+     YELLOW = attention (drop target, "editable" tag)
+     RED    = missing / failed / stop
+     INK filled = present / done
    Color is flat and full-strength or absent. Radius is 0 or 50% —
    the single exception is the ink pill button. No shadows anywhere.
    Borders 2px ink; rules 1px ink. Motion is instant; the only
-   continuous motion is the 1s waiting pulse on an active arc.
+   continuous motion is the pulse on the working indicator.
 
    TYPE SCALE (px): 11 · 14 · 18 · 28 · 56 · 120 — nothing off-scale.
    SPACING (px):    8 · 16 · 24 · 40 · 64 · 96 — nothing off-scale.
@@ -59,7 +59,7 @@ a{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
 
 @media (prefers-reduced-motion: reduce){
   *, *::before, *::after{ animation:none !important; transition:none !important; }
-  .node.wait .n-sq{ opacity:.5; }
+  .prog-sq{ opacity:.6; }
 }
 
 /* ── layout ────────────────────────────────────────────────────────── */
@@ -73,7 +73,6 @@ main.wrap{ padding-bottom:var(--s6); }
   font-family:var(--disp); font-weight:700; font-size:var(--f-120);
   line-height:1; letter-spacing:-.01em; font-variant-numeric:tabular-nums;
 }
-.delta-mono{ font-family:var(--mono); font-size:var(--f-18); font-weight:500; }
 
 /* ── header ────────────────────────────────────────────────────────── */
 .site-head{
@@ -136,8 +135,6 @@ main.wrap{ padding-bottom:var(--s6); }
   font-family:var(--disp); font-weight:700; font-size:var(--f-28);
   line-height:1.1; letter-spacing:-.01em; text-transform:uppercase;
 }
-.sec-row{ align-items:center; }
-.sec-row .btn-box{ margin-left:auto; }
 .sec-sub{
   font-family:var(--mono); font-size:var(--f-11); font-weight:500;
   letter-spacing:.08em; text-transform:uppercase;
@@ -212,40 +209,15 @@ main.wrap{ padding-bottom:var(--s6); }
   text-decoration:underline; text-underline-offset:3px;
 }
 
-/* ── parameters ────────────────────────────────────────────────────── */
+/* ── model settings ────────────────────────────────────────────────── */
 .params-grid{ row-gap:var(--s4); }
 .param{ text-align:left; }
-.param-num{
-  font-family:var(--disp); font-weight:600; font-size:var(--f-56);
-  line-height:1; font-variant-numeric:tabular-nums;
-}
 .param-label{
   display:block; font-family:var(--mono); font-size:var(--f-11);
   font-weight:500; letter-spacing:.08em; margin:var(--s1) 0 var(--s2);
 }
 .param .cap{ margin-top:var(--s1); }
 .param .field{ margin-bottom:var(--s1); }
-
-/* sliders: a 2px ink rule with a filled circle thumb —
-   blue for target score, yellow for max laps */
-.range{
-  -webkit-appearance:none; appearance:none;
-  width:100%; height:24px; background:transparent; cursor:pointer;
-}
-.range::-webkit-slider-runnable-track{ height:2px; background:var(--ink); }
-.range::-moz-range-track{ height:2px; background:var(--ink); }
-.range::-webkit-slider-thumb{
-  -webkit-appearance:none; appearance:none;
-  width:24px; height:24px; border-radius:50%; border:2px solid var(--ink);
-  margin-top:-11px;
-}
-.range::-moz-range-thumb{
-  width:20px; height:20px; border-radius:50%; border:2px solid var(--ink);
-}
-.range-blue::-webkit-slider-thumb{ background:var(--blue); }
-.range-blue::-moz-range-thumb{ background:var(--blue); }
-.range-yellow::-webkit-slider-thumb{ background:var(--yellow); }
-.range-yellow::-moz-range-thumb{ background:var(--yellow); }
 
 /* the model select: appearance none, drawn ink chevron */
 .select{
@@ -272,16 +244,6 @@ main.wrap{ padding-bottom:var(--s6); }
 }
 .pill-fit{ display:inline-block; width:auto; }
 
-.btn-box{
-  font-family:var(--disp); font-weight:600; font-size:var(--f-14);
-  letter-spacing:.08em; text-transform:uppercase;
-  background:var(--paper); color:var(--ink);
-  border:2px solid var(--ink); border-radius:0;
-  padding:var(--s1) var(--s2); cursor:pointer;
-}
-.btn-box:hover:not(:disabled){ background:var(--red); border-color:var(--red); color:var(--paper); }
-.btn-box:disabled{ cursor:not-allowed; opacity:.45; }
-
 .btn-line{
   font-family:var(--disp); font-weight:600; font-size:var(--f-14);
   letter-spacing:.04em; text-transform:uppercase;
@@ -290,14 +252,15 @@ main.wrap{ padding-bottom:var(--s6); }
   padding:var(--s1) 0;
 }
 
-/* sticky launch bar */
+/* Sticky launch bar. It is the last element in the section, so the page
+   needs slack under it — without the trailing padding the bar parks on top
+   of the final section instead of scrolling clear of it. */
 .actionbar{
   position:sticky; bottom:0; z-index:30;
   background:var(--paper); border-top:2px solid var(--ink);
-  padding:var(--s2) 0; margin-top:var(--s5);
+  padding:var(--s2) 0 var(--s3); margin-top:var(--s5);
 }
-
-.actions-row{ display:flex; align-items:center; gap:var(--s3); margin-top:var(--s4); }
+#page-input{ padding-bottom:var(--s5); }
 
 /* error box: ink text, red frame — a stop, not a decoration */
 .err-box{
@@ -306,272 +269,93 @@ main.wrap{ padding-bottom:var(--s6); }
   margin-top:var(--s3); white-space:pre-wrap;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   PAGE 2 — the loop disc
-   ═══════════════════════════════════════════════════════════════════ */
-
-.process-grid{
-  display:grid; grid-template-columns:1fr; gap:var(--s4);
-  align-items:start; margin-top:var(--s3);
-}
-@media (min-width:900px){
-  .process-grid{ grid-template-columns:minmax(0,560px) 1fr; gap:var(--s5); }
-}
-
-/* ── the agent loop as a circle ─────────────────────────────────────
-   Five stages on a ring, flow travels clockwise. A failed check is
-   not a jump backwards — it is continuing around the circle: the
-   DECIDE→GUARD arc lights red. Node states:
-     outline = not reached · solid stage color = running (inner square
-     pulses = waiting on the model) · solid ink = done this cycle ·
-     solid red = decision said "not done". */
-.flow{ position:relative; display:flex; flex-direction:column; align-items:flex-start; }
-
-.node{
-  display:flex; flex-direction:column; gap:4px;
-  border:2px solid var(--ink); background:var(--paper);
-  padding:var(--s1) var(--s2); min-width:176px;
-}
-.n-top{ display:flex; align-items:center; gap:var(--s1); }
-.n-sq{ flex:none; width:14px; height:14px; border:2px solid var(--ink); background:transparent; }
-.n-num{ font-family:var(--mono); font-size:var(--f-11); }
-.n-name{
-  font-family:var(--disp); font-weight:600; font-size:var(--f-14);
-  letter-spacing:.06em; text-transform:uppercase;
-}
-.n-desc{ font-family:var(--mono); font-size:var(--f-11); opacity:.7; }
-
-/* the ring itself */
-.ring-wrap{
-  position:relative; width:min(560px, 100%); aspect-ratio:1;
-  margin:var(--s2) 0;
-}
-.ring-svg{ position:absolute; inset:0; width:100%; height:100%; }
-.ring-svg circle{
-  fill:none; stroke:var(--ink); stroke-width:2;
-  vector-effect:non-scaling-stroke;
-}
-.ring-arrow{ fill:var(--ink); }
-.ring-back{
-  fill:none; stroke:transparent; stroke-width:3;
-  vector-effect:non-scaling-stroke;
-}
-.ring-back.live{ stroke:var(--red); stroke-width:4; }
-
-.ring-node{
-  position:absolute; transform:translate(-50%, -50%);
-  min-width:150px; max-width:200px;
-}
-.flow-guard.ring-node{ max-width:220px; }
-
-.send-lbl{
-  position:absolute; left:14%; top:66%;
-  font-family:var(--mono); font-size:var(--f-11); letter-spacing:.06em;
-  opacity:.55; white-space:nowrap;
-}
-.send-lbl.live{ color:var(--red); opacity:1; font-weight:500; }
-
-/* the lap number — the center of the circle */
-.ring-lap{
-  position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
-  display:flex; flex-direction:column; align-items:center; gap:var(--s1);
-  pointer-events:none;
-}
-
-@media (max-width:640px){
-  .ring-node{ min-width:0; }
-  .ring-node .n-desc{ display:none; }
-  .ring-node .flow-chips{ display:none; }
-}
-
-.node.done{ background:var(--ink); border-color:var(--ink); color:var(--paper); }
-.node.done .n-sq{ border-color:var(--paper); background:var(--paper); }
-.node.on{ background:var(--red); border-color:var(--red); color:var(--paper); }
-.node.on .n-sq{ border-color:var(--paper); }
-
-/* the RUNNING stage fills its whole box solid — unmissable from the back
-   of the room. The little square pulses: still waiting on the model. */
-@keyframes sq-pulse{ 0%,49.9%{ opacity:1; } 50%,100%{ opacity:0; } }
-.node.wait .n-sq{ animation:sq-pulse 2s linear infinite; }
-
-.flow-mission.wait, .flow-guard.wait{
-  background:var(--ink); border-color:var(--ink); color:var(--paper);
-}
-.flow-mission.wait .n-sq, .flow-guard.wait .n-sq{
-  border-color:var(--paper); background:var(--paper);
-}
-.flow-brain.wait, .flow-tool.wait{
-  background:var(--blue); border-color:var(--blue); color:var(--paper);
-}
-.flow-brain.wait .n-sq, .flow-tool.wait .n-sq{
-  border-color:var(--paper); background:var(--paper);
-}
-.flow-critic.wait, .flow-human.wait{
-  background:var(--yellow); border-color:var(--ink); color:var(--ink);
-}
-.flow-critic.wait .n-sq, .flow-human.wait .n-sq{
-  border-color:var(--ink); background:var(--ink);
-}
-
-/* connectors: a 2px ink drop with a triangle head + branch label.
-   Entry aligns with GUARD (upper-left of the ring); exit with DECIDE. */
-.conn{
-  position:relative; display:flex; align-items:center; gap:var(--s1);
-  height:var(--s3); margin-left:var(--s3);
-}
-.conn-entry{ margin-left:64px; }
-.conn-exit{ margin-left:144px; }
-.flow > .flow-human, .flow > .flow-complete{ margin-left:96px; }
-.conn::before{ content:""; width:2px; height:100%; background:var(--ink); }
-.conn::after{
-  content:""; position:absolute; left:-3px; bottom:0;
-  width:8px; height:8px; background:var(--ink);
-  clip-path:polygon(0 0, 100% 0, 50% 100%);
-}
-.conn-lbl{
-  font-family:var(--mono); font-size:var(--f-11); letter-spacing:.06em;
-  padding-left:var(--s1); opacity:.7;
-}
-
-/* TOOL's real side-outcomes, shown inside the TOOL node */
-.flow-chips{ display:flex; gap:var(--s1); margin-top:4px; flex-wrap:wrap; }
-.flow-chip{
+/* the working line under the CTA — the only motion on page 1 */
+.progress{
+  display:flex; align-items:center; gap:var(--s2); margin-top:var(--s2);
   font-family:var(--mono); font-size:var(--f-11); letter-spacing:.04em;
-  border:1px solid var(--ink); padding:2px 8px; opacity:.45;
 }
-.flow-chip.on{ opacity:1; }
-.chip-mem.on{ background:var(--ink); color:var(--paper); }
-.chip-err.on{ background:var(--red); color:var(--paper); border-color:var(--red); }
-.node.done .flow-chip, .node.wait .flow-chip{ border-color:var(--paper); color:var(--paper); }
-.node.done .chip-mem.on{ background:var(--paper); color:var(--ink); }
-.flow-critic.wait .flow-chip{ border-color:var(--ink); color:var(--ink); }
-
-/* right column: lap number, stage, plain line, live ticker, score */
-.proc-side{ display:flex; flex-direction:column; gap:var(--s2); }
-.proc-side .stage-name{ margin-top:var(--s2); }
-
-/* the NOW ticker — one line per real step, newest on top */
-.feed{ display:flex; flex-direction:column; gap:var(--s1); max-width:480px; }
-.feed-line{
-  display:flex; align-items:baseline; gap:var(--s1);
-  font-family:var(--mono); font-size:var(--f-11); line-height:1.6;
+.prog-sq{
+  flex:none; width:12px; height:12px; background:var(--blue);
+  animation:sq-pulse 1.2s linear infinite;
 }
-.feed-line.old{ opacity:.55; }
-.feed-sq{
-  flex:none; width:10px; height:10px; border:2px solid var(--ink);
-  background:transparent; align-self:center;
-}
-.feed-ok .feed-sq{ background:var(--ink); }
-.feed-blue .feed-sq{ background:var(--blue); border-color:var(--blue); }
-.feed-yellow .feed-sq{ background:var(--yellow); }
-.feed-red .feed-sq{ background:var(--red); border-color:var(--red); }
-.feed-tag{ flex:none; font-weight:500; letter-spacing:.06em; }
-.feed-red .feed-tag{ color:var(--red); }
-.stage-name{
-  font-family:var(--disp); font-weight:700; font-size:var(--f-28);
-  line-height:1.1; letter-spacing:-.01em; text-transform:uppercase;
-}
-.stage-line{ font-size:var(--f-18); max-width:440px; min-height:calc(var(--f-18) * 1.6); }
-.score-block{ margin-top:var(--s3); }
-.score-label{
-  font-family:var(--mono); font-size:var(--f-11); letter-spacing:.08em;
-  text-transform:uppercase;
-}
-.score-row{ display:flex; align-items:baseline; gap:var(--s2); }
-
-/* "why another lap?" — a stop sign in the page */
-.why{
-  background:var(--red); color:var(--paper);
-  padding:var(--s4); margin-top:var(--s5);
-  margin-right:calc(50% - 50vw);   /* full-bleed to the right edge */
-}
-.why-label{
-  font-family:var(--mono); font-size:var(--f-11); font-weight:500;
-  letter-spacing:.08em; text-transform:uppercase; margin-bottom:var(--s2);
-}
-.why ul{ list-style:none; display:flex; flex-direction:column; gap:var(--s1); }
-.why li{ font-family:var(--mono); font-size:var(--f-14); line-height:1.6; }
-.why-kicker{
-  font-family:var(--disp); font-weight:700; font-size:var(--f-28);
-  line-height:1.1; letter-spacing:-.01em; text-transform:uppercase;
-  margin-top:var(--s3);
-}
-
-/* finish panel — appears only on the real stop event */
-.finish{ border:2px solid var(--ink); padding:var(--s3); margin-top:var(--s4); }
-.finish-head{
-  font-family:var(--disp); font-weight:700; font-size:var(--f-28);
-  line-height:1.1; text-transform:uppercase;
-}
-.finish-reason{ font-size:var(--f-18); margin-top:var(--s1); }
-.finish-journey{ font-family:var(--mono); font-size:var(--f-14); margin-top:var(--s2); }
-
-/* ── the 3×3 check grid ────────────────────────────────────────────── */
-.cl-head{
-  display:flex; align-items:baseline; gap:var(--s2);
-  margin-bottom:var(--s2);
-}
-.cl-count{ font-family:var(--mono); font-size:var(--f-11); letter-spacing:.08em; }
-
-.cl-key{ display:flex; gap:var(--s3); margin-bottom:var(--s2); flex-wrap:wrap; }
-.cl-key-item{
-  display:flex; align-items:center; gap:var(--s1);
-  font-family:var(--mono); font-size:var(--f-11); letter-spacing:.06em;
-}
-.cl-key-sq{ width:12px; height:12px; border:2px solid var(--ink); background:transparent; }
-.cl-key-sq.key-fail{ background:var(--red); }
-.cl-key-sq.key-pass{ background:var(--ink); }
-
-.cl-grid{
-  display:grid; grid-template-columns:repeat(3, var(--s6)); gap:var(--s1);
-}
-.cl-cell{
-  width:var(--s6); height:var(--s6);
-  background:transparent; border:2px solid var(--ink); border-radius:0;
-  cursor:pointer; padding:0;
-}
-.cl-cell.fail{ background:var(--red); }
-.cl-cell.pass{ background:var(--ink); }
-
-.cl-evidence{
-  font-family:var(--mono); font-size:var(--f-11); line-height:1.6;
-  margin-top:var(--s2); max-width:440px; min-height:calc(var(--f-11) * 3.2);
-}
-.cl-evidence b{ font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
-
-.checks-wrap{ margin-top:var(--s5); }
+.prog-txt{ opacity:.85; }
+@keyframes sq-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.2; } }
 
 /* ═══════════════════════════════════════════════════════════════════
-   PAGE 3 — result
+   PAGE 2 — result
    ═══════════════════════════════════════════════════════════════════ */
 
+.score-label{
+  font-family:var(--mono); font-size:var(--f-11); font-weight:500;
+  letter-spacing:.08em; margin-bottom:var(--s1);
+}
+.score-row{ display:flex; align-items:baseline; gap:var(--s1); }
+.score-of{ font-family:var(--mono); font-size:var(--f-18); opacity:.5; }
 .result-top{
   display:flex; flex-wrap:wrap; align-items:flex-end; gap:var(--s4);
-  justify-content:space-between;
+  justify-content:space-between; margin-bottom:var(--s4);
 }
-.result-actions{ display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap; }
+.result-actions{ display:flex; align-items:center; gap:var(--s2); flex-wrap:wrap; }
 
+/* ── the two panes: editable output beside the untouched original ──── */
 .compare{ display:grid; grid-template-columns:1fr; border:2px solid var(--ink); }
-@media (min-width:900px){ .compare{ grid-template-columns:1fr 1fr; } }
-.pane{ min-width:0; }
-.pane-after{ border-top:2px solid var(--ink); }
-@media (min-width:900px){ .pane-after{ border-top:0; border-left:2px solid var(--ink); } }
+@media (min-width:900px){ .compare{ grid-template-columns:1.15fr 1fr; } }
+.pane{ min-width:0; display:flex; flex-direction:column; }
+.pane + .pane{ border-top:2px solid var(--ink); }
+@media (min-width:900px){ .pane + .pane{ border-top:0; border-left:2px solid var(--ink); } }
 .pane-label{
   font-family:var(--mono); font-size:var(--f-11); font-weight:500;
   letter-spacing:.08em; padding:var(--s1) var(--s2);
   border-bottom:1px solid var(--ink);
+  display:flex; align-items:center; gap:var(--s1);
+}
+.pane-after .pane-label{ background:var(--ink); color:var(--paper); border-bottom-color:var(--ink); }
+.pane-hint{
+  margin-left:auto; background:var(--yellow); color:var(--ink);
+  padding:0 6px; letter-spacing:.06em;
 }
 .pane-body{
   font-family:var(--mono); font-size:var(--f-14); line-height:var(--lh);
-  padding:var(--s2); height:calc(var(--lh) * 22 + 32px); overflow-y:auto;
-  white-space:pre-wrap; word-break:break-word;
+  padding:var(--s2); max-height:calc(var(--lh) * 26 + 32px); overflow-y:auto;
+  white-space:pre-wrap; word-break:break-word; opacity:.75;
 }
 .pane-body .line{ display:block; min-height:var(--lh); }
-.line-add{ background:var(--yellow); }
-.line-del{ text-decoration:line-through; text-decoration-thickness:2px; }
 
-.dl-grid{ display:grid; grid-template-columns:1fr; gap:var(--s4); }
-@media (min-width:900px){ .dl-grid{ grid-template-columns:auto 1fr; gap:var(--s5); } }
+/* the tailored resume is a real textarea — the last edit is always yours */
+.resume-out{
+  width:100%; border:0; background:var(--paper); color:var(--ink);
+  font-family:var(--mono); font-size:var(--f-14); line-height:var(--lh);
+  padding:var(--s2); resize:vertical; min-height:480px;
+  white-space:pre-wrap; overflow:hidden;
+}
+.resume-out:focus{ outline:2px solid var(--blue); outline-offset:-2px; }
+
+/* ── score breakdown ───────────────────────────────────────────────── */
+.bd-grid{ display:grid; grid-template-columns:1fr; gap:var(--s3); }
+@media (min-width:760px){ .bd-grid{ grid-template-columns:1fr 1fr; gap:var(--s3) var(--s5); } }
+.bd-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--s2); }
+.bd-area{ font-family:var(--disp); font-weight:600; font-size:var(--f-14); }
+.bd-num{ font-family:var(--mono); font-size:var(--f-14); font-weight:500; }
+.bd-max{ opacity:.45; }
+.bd-track{ display:block; height:10px; border:2px solid var(--ink); margin-top:6px; }
+.bd-fill{ display:block; height:100%; background:var(--ink); }
+.bd-note{ font-family:var(--mono); font-size:var(--f-11); line-height:1.6; opacity:.7; margin-top:6px; }
+
+/* ── keyword coverage ──────────────────────────────────────────────── */
+.kw-cloud{ display:flex; flex-wrap:wrap; gap:var(--s1); margin-bottom:var(--s2); }
+.kw{
+  font-family:var(--mono); font-size:var(--f-11); letter-spacing:.04em;
+  border:2px solid var(--ink); padding:3px 8px; cursor:default;
+}
+.kw-in{ background:var(--ink); color:var(--paper); }
+.kw-out{ background:transparent; color:var(--ink); border-color:var(--red); color:var(--red); }
+.kw-must.kw-in{ background:var(--blue); border-color:var(--blue); }
+.kw-must.kw-out{ background:var(--red); border-color:var(--red); color:var(--paper); }
+.kw-star{ font-weight:500; margin-right:3px; }
+
+/* ── changes + gaps ────────────────────────────────────────────────── */
+.dl-grid{ display:grid; grid-template-columns:1fr; gap:var(--s4); margin-top:var(--s5); }
+@media (min-width:900px){ .dl-grid{ grid-template-columns:1fr 1fr; gap:var(--s5); } }
 
 .gap-item{ border:2px solid var(--red); padding:var(--s2) var(--s3); margin-bottom:var(--s2); }
 .gap-req{ font-family:var(--disp); font-weight:600; font-size:var(--f-14); }
@@ -582,6 +366,13 @@ main.wrap{ padding-bottom:var(--s6); }
 .gap-why{ font-family:var(--mono); font-size:var(--f-11); margin-top:var(--s1); opacity:.7; }
 .gap-close{ font-size:var(--f-14); margin-top:var(--s1); }
 
-.changelog{ list-style:none; display:flex; flex-direction:column; gap:var(--s1); }
-.changelog li{ font-family:var(--mono); font-size:var(--f-11); line-height:1.6; }
-.changelog .lap-tag{ font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
+.changelog{ list-style:none; display:flex; flex-direction:column; gap:var(--s2); }
+.changelog li{ border-left:2px solid var(--ink); padding-left:var(--s2); }
+.ch-what{ display:block; font-size:var(--f-14); }
+.ch-why{
+  display:block; font-family:var(--mono); font-size:var(--f-11);
+  line-height:1.6; opacity:.7; margin-top:2px;
+}
+
+/* ── section spacing on the result page ────────────────────────────── */
+#breakdownWrap, #keywordsWrap{ margin-top:var(--s5); }
