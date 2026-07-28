@@ -1,11 +1,19 @@
 # ResumeFit
 
+**Live app → [resume-loop.vercel.app](https://resume-loop.vercel.app/)**
+
 An ATS resume builder. Paste your resume and a job posting; get back a rewritten,
 ATS-safe resume, an honest score, and a straight answer about what you are missing.
 
-No account, no backend, no build step. Everything runs in your browser, and your
-resume is never uploaded anywhere — it goes to the model provider you choose and
-nowhere else.
+No account, no backend, no build step. Everything runs in your browser. Your resume
+goes to OpenRouter and the model you pick — nowhere else, and never to a server
+belonging to this app, because there isn't one.
+
+> **Bring your own key.** You need an [OpenRouter key](https://openrouter.ai/keys)
+> (`sk-or-…`). It is kept in your browser's local storage and sent only to OpenRouter.
+> A run is two calls — cents per resume.
+
+![The result page: ATS score, the tailored resume beside your original, and an honest count of the requirements actually covered](docs/screenshot.png)
 
 ---
 
@@ -124,6 +132,17 @@ Pick **Custom model slug…** to use any other model from
 A run is two calls and a few thousand tokens, so even the expensive options cost
 cents per resume.
 
+### Deploying
+
+It is a static site — any host will serve it. The live version runs on Vercel:
+
+```bash
+npx vercel --prod
+```
+
+There is nothing to configure: no build step, no environment variables, no server.
+The API key belongs to whoever is using the app, not to the deployment.
+
 ---
 
 ## Project layout
@@ -131,6 +150,7 @@ cents per resume.
 ```
 index.html          two pages: input, result
 css/custom.css      the whole design system
+docs/               README assets
 js/
   main.js           entry point, page wiring, upload handling
   build.js          the two-stage pipeline + response normalisers
